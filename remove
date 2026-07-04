@@ -125,6 +125,66 @@ remove_config() {
     fi
 }
 
+# Function to remove temporary files
+remove_temp_files() {
+    echo -e "${YELLOW}🗑️  Removing temporary files...${NC}"
+    rm -rf /tmp/hermes_* 2>/dev/null || true
+    rm -rf /tmp/Hermes 2>/dev/null || true
+    rm -rf /tmp/hermes 2>/dev/null || true
+    echo -e "${GREEN}✅ Temporary files removed${NC}"
+}
+
+# Function to remove from dpkg database
+remove_from_dpkg() {
+    echo -e "${YELLOW}📦 Removing from dpkg database...${NC}"
+    
+    # Check if package exists
+    if dpkg -l | grep -q "^ii.*hermes"; then
+        if confirm "Remove Hermes from dpkg database?"; then
+            dpkg --purge hermes 2>/dev/null || true
+            echo -e "${GREEN}✅ Removed from dpkg${NC}"
+        else
+            echo -e "${BLUE}ℹ️  Keeping in dpkg database${NC}"
+        fi
+    elif dpkg -l | grep -q "^rc.*hermes"; then
+        # Package is already removed but has residual config
+        echo -e "${YELLOW}⚠️  Found residual config in dpkg${NC}"
+        if confirm "Remove residual config from dpkg?"; then
+            dpkg --purge hermes 2>/dev/null || true
+            echo -e "${GREEN}✅ Residual config removed${NC}"
+        fi
+    else
+        echo -e "${BLUE}ℹ️  Not found in dpkg database${NC}"
+    fi
+}
+
+# Function to manually clean dpkg status (if needed)
+manual_dpkg_cleanup() {
+    echo -e "${YELLOW}🔧 Manual dpkg cleanup...${NC}"
+    if grep -q "Package: hermes" /var/lib/dpkg/status 2>/dev/null; then
+        if confirm "Found hermes entry in dpkg status. Remove it manually?"; then
+            # Create backup
+            cp /var/lib/dpkg/status /var/lib/dpkg/status.backup
+            # Remove the entry
+            sed -i '/Package: hermes/,/^$/d' /var/lib/dpkg/status
+            echo -e "${GREEN}✅ Removed from dpkg status${NC}"
+        fi
+    else
+        echo -e "${BLUE}ℹ️  No hermes entry in dpkg status${NC}"
+    fi
+}
+
+# Function to remove Python virtual environment
+remove_venv() {
+    echo -e "${YELLOW}🐍 Removing virtual environment...${NC}"
+    if [ -d "/usr/share/hermes/venv" ]; then
+        rm -rf /usr/share/hermes/venv
+        echo -e "${GREEN}✅ Virtual environment removed${NC}"
+    else
+        echo -e "${BLUE}ℹ️  Virtual environment not found${NC}"
+    fi
+}
+
 # Function to remove Python packages (optional)
 remove_python_packages() {
     echo -e "${YELLOW}🐍 Removing Python packages (optional)...${NC}"
@@ -179,30 +239,54 @@ remove_user_accounts() {
     fi
 }
 
-# Function to clean up temporary files
-remove_temp_files() {
-    echo -e "${YELLOW}🗑️  Removing temporary files...${NC}"
-    
-    # Remove from common temp locations
-    rm -rf /tmp/hermes_* 2>/dev/null || true
-    rm -rf /tmp/Hermes 2>/dev/null || true
-    rm -rf /tmp/hermes 2>/dev/null || true
-    
-    echo -e "${GREEN}✅ Temporary files removed${NC}"
-}
-
-# Function to remove from dpkg database
-remove_from_dpkg() {
-    echo -e "${YELLOW}📦 Removing from dpkg database...${NC}"
-    if dpkg -l | grep -q hermes; then
-        if confirm "Remove Hermes from dpkg database?"; then
-            dpkg --purge hermes 2>/dev/null || true
-            echo -e "${GREEN}✅ Removed from dpkg${NC}"
-        else
-            echo -e "${BLUE}ℹ️  Keeping in dpkg database${NC}"
+# Function to check for running processes
+check_running_processes() {
+    echo -e "${YELLOW}🔍 Checking for running Hermes processes...${NC}"
+    if pgrep -f "hermes" > /dev/null 2>&1; then
+        echo -e "${YELLOW}⚠️  Found running Hermes processes:${NC}"
+        ps aux | grep hermes | grep -v grep
+        if confirm "Kill these processes?"; then
+            pkill -f hermes 2>/dev/null || true
+            echo -e "${GREEN}✅ Processes killed${NC}"
         fi
     else
-        echo -e "${BLUE}ℹ️  Not found in dpkg database${NC}"
+        echo -e "${BLUE}ℹ️  No running Hermes processes found${NC}"
+    fi
+}
+
+# Function to verify removal
+verify_removal() {
+    echo -e "${YELLOW}🔍 Verifying removal...${NC}"
+    
+    local found=false
+    
+    # Check for files
+    if [ -d "/usr/share/hermes" ] || [ -d "/var/log/hermes" ] || [ -d "/var/lib/hermes" ] || [ -d "/etc/hermes" ]; then
+        echo -e "${RED}❌ Some directories still exist:${NC}"
+        [ -d "/usr/share/hermes" ] && echo "  - /usr/share/hermes"
+        [ -d "/var/log/hermes" ] && echo "  - /var/log/hermes"
+        [ -d "/var/lib/hermes" ] && echo "  - /var/lib/hermes"
+        [ -d "/etc/hermes" ] && echo "  - /etc/hermes"
+        found=true
+    fi
+    
+    # Check for files
+    if [ -f "/usr/bin/hermes" ] || [ -f "/etc/systemd/system/hermes.service" ]; then
+        echo -e "${RED}❌ Some files still exist:${NC}"
+        [ -f "/usr/bin/hermes" ] && echo "  - /usr/bin/hermes"
+        [ -f "/etc/systemd/system/hermes.service" ] && echo "  - /etc/systemd/system/hermes.service"
+        found=true
+    fi
+    
+    # Check dpkg
+    if dpkg -l | grep -q hermes 2>/dev/null; then
+        echo -e "${RED}❌ Still in dpkg database:${NC}"
+        dpkg -l | grep hermes
+        found=true
+    fi
+    
+    if [ "$found" = false ]; then
+        echo -e "${GREEN}✅ All traces of Hermes have been removed!${NC}"
     fi
 }
 
@@ -221,7 +305,10 @@ main() {
     echo -e "${BLUE}Starting removal process...${NC}"
     echo ""
     
-    # Stop service first
+    # Check for running processes first
+    check_running_processes
+    
+    # Stop service
     stop_service
     
     # Remove system components
@@ -235,16 +322,21 @@ main() {
     remove_data
     remove_config
     remove_temp_files
+    remove_venv
+    
+    # Remove from dpkg
+    remove_from_dpkg
+    manual_dpkg_cleanup
     
     # Optional removals
     remove_python_packages
     remove_user_accounts
     
-    # Remove from dpkg (if installed via deb)
-    remove_from_dpkg
+    # Verify removal
+    verify_removal
     
     echo ""
-    echo -e "${GREEN}✅ Hermes Security Analyzer has been completely removed!${NC}"
+    echo -e "${GREEN}✅ Hermes Security Analyzer has been removed!${NC}"
     echo ""
     echo -e "${BLUE}📋 Summary of removed items:${NC}"
     echo "  - Systemd service: /etc/systemd/system/hermes.service"
@@ -255,6 +347,7 @@ main() {
     echo "  - Data: /var/lib/hermes"
     echo "  - Configuration: /etc/hermes"
     echo "  - Temporary files: /tmp/hermes_*"
+    echo "  - Virtual environment: /usr/share/hermes/venv"
     echo ""
     echo -e "${BLUE}ℹ️  To verify removal:${NC}"
     echo "  - Check if service exists: systemctl list-units | grep hermes"
