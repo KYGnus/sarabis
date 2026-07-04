@@ -1,0 +1,270 @@
+#!/bin/bash
+
+# remove_hermes.sh - Complete removal script for Hermes Security Analyzer
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+echo -e "${RED}🗑️  Hermes Security Analyzer - Complete Removal${NC}"
+echo ""
+
+# Check if running as root
+if [[ $EUID -ne 0 ]]; then
+   echo -e "${RED}❌ This script must be run as root (sudo)${NC}"
+   exit 1
+fi
+
+# Function to confirm action
+confirm() {
+    read -p "$1 (y/N): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        return 1
+    fi
+    return 0
+}
+
+# Function to stop and disable service
+stop_service() {
+    echo -e "${YELLOW}⏹️  Stopping Hermes service...${NC}"
+    if systemctl is-active --quiet hermes 2>/dev/null; then
+        systemctl stop hermes
+        echo -e "${GREEN}✅ Service stopped${NC}"
+    else
+        echo -e "${BLUE}ℹ️  Service not running${NC}"
+    fi
+    
+    if systemctl is-enabled --quiet hermes 2>/dev/null; then
+        systemctl disable hermes
+        echo -e "${GREEN}✅ Service disabled${NC}"
+    fi
+}
+
+# Function to remove systemd service
+remove_service_file() {
+    echo -e "${YELLOW}🗑️  Removing systemd service file...${NC}"
+    if [ -f /etc/systemd/system/hermes.service ]; then
+        rm -f /etc/systemd/system/hermes.service
+        systemctl daemon-reload
+        systemctl reset-failed 2>/dev/null || true
+        echo -e "${GREEN}✅ Systemd service removed${NC}"
+    else
+        echo -e "${BLUE}ℹ️  Service file not found${NC}"
+    fi
+}
+
+# Function to remove launcher script
+remove_launcher() {
+    echo -e "${YELLOW}🗑️  Removing launcher script...${NC}"
+    if [ -f /usr/bin/hermes ]; then
+        rm -f /usr/bin/hermes
+        echo -e "${GREEN}✅ Launcher removed${NC}"
+    else
+        echo -e "${BLUE}ℹ️  Launcher not found${NC}"
+    fi
+}
+
+# Function to remove desktop entry
+remove_desktop_entry() {
+    echo -e "${YELLOW}🗑️  Removing desktop entry...${NC}"
+    if [ -f /usr/share/applications/hermes.desktop ]; then
+        rm -f /usr/share/applications/hermes.desktop
+        echo -e "${GREEN}✅ Desktop entry removed${NC}"
+    else
+        echo -e "${BLUE}ℹ️  Desktop entry not found${NC}"
+    fi
+}
+
+# Function to remove application files
+remove_app_files() {
+    echo -e "${YELLOW}🗑️  Removing application files...${NC}"
+    if [ -d /usr/share/hermes ]; then
+        rm -rf /usr/share/hermes
+        echo -e "${GREEN}✅ Application files removed${NC}"
+    else
+        echo -e "${BLUE}ℹ️  Application directory not found${NC}"
+    fi
+}
+
+# Function to remove log files
+remove_logs() {
+    echo -e "${YELLOW}🗑️  Removing log files...${NC}"
+    if [ -d /var/log/hermes ]; then
+        rm -rf /var/log/hermes
+        echo -e "${GREEN}✅ Log files removed${NC}"
+    else
+        echo -e "${BLUE}ℹ️  Log directory not found${NC}"
+    fi
+}
+
+# Function to remove data files
+remove_data() {
+    echo -e "${YELLOW}🗑️  Removing data files...${NC}"
+    if [ -d /var/lib/hermes ]; then
+        rm -rf /var/lib/hermes
+        echo -e "${GREEN}✅ Data files removed${NC}"
+    else
+        echo -e "${BLUE}ℹ️  Data directory not found${NC}"
+    fi
+}
+
+# Function to remove configuration
+remove_config() {
+    echo -e "${YELLOW}🗑️  Removing configuration...${NC}"
+    if [ -d /etc/hermes ]; then
+        rm -rf /etc/hermes
+        echo -e "${GREEN}✅ Configuration removed${NC}"
+    else
+        echo -e "${BLUE}ℹ️  Config directory not found${NC}"
+    fi
+}
+
+# Function to remove Python packages (optional)
+remove_python_packages() {
+    echo -e "${YELLOW}🐍 Removing Python packages (optional)...${NC}"
+    if confirm "Do you want to remove Hermes-specific Python packages?"; then
+        echo -e "${YELLOW}📦 Removing Python packages...${NC}"
+        
+        # Check if pip3 is available
+        if command -v pip3 &> /dev/null; then
+            # List of packages to remove
+            PACKAGES=(
+                "flask"
+                "paramiko"
+                "pandas"
+                "numpy"
+                "scikit-learn"
+                "joblib"
+                "gunicorn"
+                "werkzeug"
+                "flask-session"
+                "cryptography"
+                "bcrypt"
+            )
+            
+            for pkg in "${PACKAGES[@]}"; do
+                echo -e "${BLUE}  Removing $pkg...${NC}"
+                pip3 uninstall -y "$pkg" 2>/dev/null || true
+            done
+            
+            echo -e "${GREEN}✅ Python packages removed${NC}"
+        else
+            echo -e "${RED}❌ pip3 not found, skipping Python package removal${NC}"
+        fi
+    else
+        echo -e "${BLUE}ℹ️  Skipping Python package removal${NC}"
+    fi
+}
+
+# Function to clean up user accounts
+remove_user_accounts() {
+    echo -e "${YELLOW}👤 Removing hermes user accounts (if any)...${NC}"
+    
+    # Check if hermes user exists
+    if id "hermes" &>/dev/null; then
+        if confirm "Remove 'hermes' user account?"; then
+            userdel -r hermes 2>/dev/null || true
+            echo -e "${GREEN}✅ User account removed${NC}"
+        else
+            echo -e "${BLUE}ℹ️  Keeping user account${NC}"
+        fi
+    else
+        echo -e "${BLUE}ℹ️  No hermes user found${NC}"
+    fi
+}
+
+# Function to clean up temporary files
+remove_temp_files() {
+    echo -e "${YELLOW}🗑️  Removing temporary files...${NC}"
+    
+    # Remove from common temp locations
+    rm -rf /tmp/hermes_* 2>/dev/null || true
+    rm -rf /tmp/Hermes 2>/dev/null || true
+    rm -rf /tmp/hermes 2>/dev/null || true
+    
+    echo -e "${GREEN}✅ Temporary files removed${NC}"
+}
+
+# Function to remove from dpkg database
+remove_from_dpkg() {
+    echo -e "${YELLOW}📦 Removing from dpkg database...${NC}"
+    if dpkg -l | grep -q hermes; then
+        if confirm "Remove Hermes from dpkg database?"; then
+            dpkg --purge hermes 2>/dev/null || true
+            echo -e "${GREEN}✅ Removed from dpkg${NC}"
+        else
+            echo -e "${BLUE}ℹ️  Keeping in dpkg database${NC}"
+        fi
+    else
+        echo -e "${BLUE}ℹ️  Not found in dpkg database${NC}"
+    fi
+}
+
+# Main removal process
+main() {
+    echo -e "${RED}⚠️  WARNING: This will completely remove Hermes Security Analyzer${NC}"
+    echo -e "${RED}⚠️  Including all configuration, logs, and data!${NC}"
+    echo ""
+    
+    if ! confirm "Are you sure you want to continue?"; then
+        echo -e "${GREEN}Removal cancelled${NC}"
+        exit 0
+    fi
+    
+    echo ""
+    echo -e "${BLUE}Starting removal process...${NC}"
+    echo ""
+    
+    # Stop service first
+    stop_service
+    
+    # Remove system components
+    remove_service_file
+    remove_launcher
+    remove_desktop_entry
+    
+    # Remove files and directories
+    remove_app_files
+    remove_logs
+    remove_data
+    remove_config
+    remove_temp_files
+    
+    # Optional removals
+    remove_python_packages
+    remove_user_accounts
+    
+    # Remove from dpkg (if installed via deb)
+    remove_from_dpkg
+    
+    echo ""
+    echo -e "${GREEN}✅ Hermes Security Analyzer has been completely removed!${NC}"
+    echo ""
+    echo -e "${BLUE}📋 Summary of removed items:${NC}"
+    echo "  - Systemd service: /etc/systemd/system/hermes.service"
+    echo "  - Launcher: /usr/bin/hermes"
+    echo "  - Desktop entry: /usr/share/applications/hermes.desktop"
+    echo "  - Application: /usr/share/hermes"
+    echo "  - Logs: /var/log/hermes"
+    echo "  - Data: /var/lib/hermes"
+    echo "  - Configuration: /etc/hermes"
+    echo "  - Temporary files: /tmp/hermes_*"
+    echo ""
+    echo -e "${BLUE}ℹ️  To verify removal:${NC}"
+    echo "  - Check if service exists: systemctl list-units | grep hermes"
+    echo "  - Check if files remain: ls -la /usr/share/hermes"
+    echo "  - Check dpkg: dpkg -l | grep hermes"
+    echo ""
+    echo -e "${YELLOW}📝 Note: If you want to reinstall, you can use:${NC}"
+    echo "  sudo dpkg -i hermes_1.0.0_all.deb"
+    echo ""
+}
+
+# Run main function
+main
