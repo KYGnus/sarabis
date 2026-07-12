@@ -1,19 +1,19 @@
-# sarabis Security Analyzer
+# sarabis 
 
 **A Comprehensive Remote System Security Analysis Platform**
 
 <div align="center">
-  <img src="./images/hermes1.png" width="30%" alt="Dashboard"/>
-  <img src="./images/hermes2.png" width="30%" alt="Security Analysis"/>
-  <img src="./images/hermes3.png" width="30%" alt="Process Monitoring"/>
+  <img src="./images/sarabis1.png" width="30%" alt="Dashboard"/>
+  <img src="./images/sarabis2.png" width="30%" alt="Security Analysis"/>
+  <img src="./images/sarabis3.png" width="30%" alt="Process Monitoring"/>
   <br/>
-  <img src="./images/hermes4.png" width="30%" alt="Network Analysis"/>
-  <img src="./images/hermes5.png" width="30%" alt="Log Management"/>
-  <img src="./images/hermes6.png" width="30%" alt="Service Analysis"/>
+  <img src="./images/sarabis4.png" width="30%" alt="Network Analysis"/>
+  <img src="./images/sarabis5.png" width="30%" alt="Log Management"/>
+  <img src="./images/sarabis6.png" width="30%" alt="Service Analysis"/>
   <br/>
-  <img src="./images/hermes7.png" width="30%" alt="Hardening Checks"/>
-  <img src="./images/hermes8.png" width="30%" alt="Kernel Analysis"/>
-  <img src="./images/hermes9.png" width="30%" alt="Reports"/>
+  <img src="./images/sarabis7.png" width="30%" alt="Hardening Checks"/>
+  <img src="./images/sarabis8.png" width="30%" alt="Kernel Analysis"/>
+  <img src="./images/sarabis9.png" width="30%" alt="Reports"/>
 </div>
 
 ## 🚀 Overview
@@ -108,10 +108,10 @@
 #### Download and Install
 ```bash
 # Download the .deb package
-wget https://github.com/KooshaYeganeh/sarabis/releases/latest/download/hermes_1.0.0_all.deb
+wget https://github.com/KooshaYeganeh/sarabis/releases/latest/download/sarabis_1.0.0_all.deb
 
 # Install the package
-sudo dpkg -i hermes_1.0.0_all.deb
+sudo dpkg -i sarabis_1.0.0_all.deb
 
 # Fix any dependency issues
 sudo apt-get install -f
@@ -128,7 +128,7 @@ chmod +x build_deb.sh
 ./build_deb.sh
 
 # Install
-sudo dpkg -i hermes_1.0.0_all.deb
+sudo dpkg -i sarabis_1.0.0_all.deb
 sudo apt-get install -f
 ```
 
@@ -156,14 +156,14 @@ When installed via .deb package, sarabis is organized as follows:
 
 | Location | Purpose |
 |----------|---------|
-| `/usr/share/hermes/` | Application files |
-| `/usr/share/hermes/app/` | Main application code |
-| `/etc/hermes/settings.py` | Configuration file |
-| `/var/log/hermes/` | Log files (access.log, error.log) |
-| `/var/lib/hermes/reports/` | Generated security reports |
-| `/var/lib/hermes/uploads/` | Temporary uploads |
-| `/usr/bin/hermes` | Launcher script |
-| `/etc/systemd/system/hermes.service` | Systemd service file |
+| `/usr/share/sarabis/` | Application files |
+| `/usr/share/sarabis/app/` | Main application code |
+| `/etc/sarabis/settings.py` | Configuration file |
+| `/var/log/sarabis/` | Log files (access.log, error.log) |
+| `/var/lib/sarabis/reports/` | Generated security reports |
+| `/var/lib/sarabis/uploads/` | Temporary uploads |
+| `/usr/bin/sarabis` | Launcher script |
+| `/etc/systemd/system/sarabis.service` | Systemd service file |
 
 ## 🚀 Usage
 
@@ -172,7 +172,7 @@ When installed via .deb package, sarabis is organized as follows:
 #### 1. Configure SSH Credentials
 ```bash
 # Edit the configuration file
-sudo nano /etc/hermes/settings.py
+sudo nano /etc/sarabis/settings.py
 ```
 
 Update these values:
@@ -187,27 +187,27 @@ SSH_PASSWORD = "your_password"  # Or use SSH_KEY
 **Option A: Using systemd service (Recommended)**
 ```bash
 # Start the service
-sudo systemctl start hermes
+sudo systemctl start sarabis
 
 # Enable to start on boot
-sudo systemctl enable hermes
+sudo systemctl enable sarabis
 
 # Check status
-sudo systemctl status hermes
+sudo systemctl status sarabis
 
 # View logs
-sudo journalctl -u hermes -f
+sudo journalctl -u sarabis -f
 ```
 
 **Option B: Using the launcher**
 ```bash
 # Run directly
-hermes
+sarabis
 ```
 
 **Option C: Manual run**
 ```bash
-cd /usr/share/hermes
+cd /usr/share/sarabis
 source venv/bin/activate
 python app/main.py
 ```
@@ -272,7 +272,7 @@ The report is organized into logical sections:
 ## 🔧 Configuration
 
 ### Main Configuration File
-Location: `/etc/hermes/settings.py`
+Location: `/etc/sarabis/settings.py`
 
 ```python
 # SSH Configuration
@@ -288,7 +288,7 @@ SESSION_PERMANENT = False
 PERMANENT_SESSION_LIFETIME = 3600
 
 # Paths
-LOG_DIR = '/var/log/hermes'
+LOG_DIR = '/var/log/sarabis'
 REPORT_DIR = os.path.join(LOG_DIR, 'reports')
 
 # Cache Settings
@@ -341,25 +341,25 @@ DEBUG = False
 
 ```bash
 # Start sarabis service
-sudo systemctl start hermes
+sudo systemctl start sarabis
 
 # Stop sarabis service
-sudo systemctl stop hermes
+sudo systemctl stop sarabis
 
 # Restart sarabis service
-sudo systemctl restart hermes
+sudo systemctl restart sarabis
 
 # Check status
-sudo systemctl status hermes
+sudo systemctl status sarabis
 
 # Enable at boot
-sudo systemctl enable hermes
+sudo systemctl enable sarabis
 
 # Disable at boot
-sudo systemctl disable hermes
+sudo systemctl disable sarabis
 
 # View logs
-sudo journalctl -u hermes -f
+sudo journalctl -u sarabis -f
 ```
 
 ## 🗑️ Uninstallation
@@ -367,21 +367,21 @@ sudo journalctl -u hermes -f
 ### Complete Removal
 ```bash
 # Download the removal script
-wget https://raw.githubusercontent.com/KooshaYeganeh/sarabis/main/remove_hermes.sh
+wget https://raw.githubusercontent.com/KooshaYeganeh/sarabis/main/remove_sarabis.sh
 
 # Make it executable
-chmod +x remove_hermes.sh
+chmod +x remove_sarabis.sh
 
 # Run it (will prompt for confirmation)
-sudo ./remove_hermes.sh
+sudo ./remove_sarabis.sh
 ```
 
 ### Quick Removal
 ```bash
 # Remove without prompts
-sudo dpkg --purge hermes
-sudo rm -rf /usr/share/hermes /var/log/hermes /var/lib/hermes /etc/hermes
-sudo rm -f /usr/bin/hermes /etc/systemd/system/hermes.service
+sudo dpkg --purge sarabis
+sudo rm -rf /usr/share/sarabis /var/log/sarabis /var/lib/sarabis /etc/sarabis
+sudo rm -f /usr/bin/sarabis /etc/systemd/system/sarabis.service
 sudo systemctl daemon-reload
 ```
 
@@ -403,8 +403,8 @@ sudo apt-get install python3.9 python3.9-venv python3.9-dev
 #### 2. Service fails to start
 ```bash
 # Check logs
-sudo journalctl -u hermes -n 50
-sudo tail -f /var/log/hermes/error.log
+sudo journalctl -u sarabis -n 50
+sudo tail -f /var/log/sarabis/error.log
 
 # Verify configuration
 sudo python3 -c "import settings; print('Config OK')"
@@ -421,18 +421,18 @@ chmod 600 ~/.ssh/id_rsa
 
 #### 4. Port already in use
 ```bash
-# Change port in /etc/hermes/settings.py
-sudo nano /etc/hermes/settings.py
+# Change port in /etc/sarabis/settings.py
+sudo nano /etc/sarabis/settings.py
 # Set PORT = 5051 or another available port
 ```
 
 #### 5. Permission issues
 ```bash
 # Fix permissions
-sudo chown -R root:root /usr/share/hermes
-sudo chmod 755 /usr/share/hermes
-sudo chmod 755 /var/log/hermes
-sudo chmod 755 /var/lib/hermes
+sudo chown -R root:root /usr/share/sarabis
+sudo chmod 755 /usr/share/sarabis
+sudo chmod 755 /var/log/sarabis
+sudo chmod 755 /var/lib/sarabis
 ```
 
 ## 📝 Contributing
