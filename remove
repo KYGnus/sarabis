@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# remove_hermes.sh - Complete removal script for Hermes Security Analyzer
+# remove_sarabis.sh - Complete removal script for sarabis Security Analyzer
 
 set -e
 
@@ -11,7 +11,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-echo -e "${RED}🗑️  Hermes Security Analyzer - Complete Removal${NC}"
+echo -e "${RED}🗑️  sarabis Security Analyzer - Complete Removal${NC}"
 echo ""
 
 # Check if running as root
@@ -32,16 +32,16 @@ confirm() {
 
 # Function to stop and disable service
 stop_service() {
-    echo -e "${YELLOW}⏹️  Stopping Hermes service...${NC}"
-    if systemctl is-active --quiet hermes 2>/dev/null; then
-        systemctl stop hermes
+    echo -e "${YELLOW}⏹️  Stopping sarabis service...${NC}"
+    if systemctl is-active --quiet sarabis 2>/dev/null; then
+        systemctl stop sarabis
         echo -e "${GREEN}✅ Service stopped${NC}"
     else
         echo -e "${BLUE}ℹ️  Service not running${NC}"
     fi
     
-    if systemctl is-enabled --quiet hermes 2>/dev/null; then
-        systemctl disable hermes
+    if systemctl is-enabled --quiet sarabis 2>/dev/null; then
+        systemctl disable sarabis
         echo -e "${GREEN}✅ Service disabled${NC}"
     fi
 }
@@ -49,8 +49,8 @@ stop_service() {
 # Function to remove systemd service
 remove_service_file() {
     echo -e "${YELLOW}🗑️  Removing systemd service file...${NC}"
-    if [ -f /etc/systemd/system/hermes.service ]; then
-        rm -f /etc/systemd/system/hermes.service
+    if [ -f /etc/systemd/system/sarabis.service ]; then
+        rm -f /etc/systemd/system/sarabis.service
         systemctl daemon-reload
         systemctl reset-failed 2>/dev/null || true
         echo -e "${GREEN}✅ Systemd service removed${NC}"
@@ -62,8 +62,8 @@ remove_service_file() {
 # Function to remove launcher script
 remove_launcher() {
     echo -e "${YELLOW}🗑️  Removing launcher script...${NC}"
-    if [ -f /usr/bin/hermes ]; then
-        rm -f /usr/bin/hermes
+    if [ -f /usr/bin/sarabis ]; then
+        rm -f /usr/bin/sarabis
         echo -e "${GREEN}✅ Launcher removed${NC}"
     else
         echo -e "${BLUE}ℹ️  Launcher not found${NC}"
@@ -73,8 +73,8 @@ remove_launcher() {
 # Function to remove desktop entry
 remove_desktop_entry() {
     echo -e "${YELLOW}🗑️  Removing desktop entry...${NC}"
-    if [ -f /usr/share/applications/hermes.desktop ]; then
-        rm -f /usr/share/applications/hermes.desktop
+    if [ -f /usr/share/applications/sarabis.desktop ]; then
+        rm -f /usr/share/applications/sarabis.desktop
         echo -e "${GREEN}✅ Desktop entry removed${NC}"
     else
         echo -e "${BLUE}ℹ️  Desktop entry not found${NC}"
@@ -84,8 +84,8 @@ remove_desktop_entry() {
 # Function to remove application files
 remove_app_files() {
     echo -e "${YELLOW}🗑️  Removing application files...${NC}"
-    if [ -d /usr/share/hermes ]; then
-        rm -rf /usr/share/hermes
+    if [ -d /usr/share/sarabis ]; then
+        rm -rf /usr/share/sarabis
         echo -e "${GREEN}✅ Application files removed${NC}"
     else
         echo -e "${BLUE}ℹ️  Application directory not found${NC}"
@@ -95,8 +95,8 @@ remove_app_files() {
 # Function to remove log files
 remove_logs() {
     echo -e "${YELLOW}🗑️  Removing log files...${NC}"
-    if [ -d /var/log/hermes ]; then
-        rm -rf /var/log/hermes
+    if [ -d /var/log/sarabis ]; then
+        rm -rf /var/log/sarabis
         echo -e "${GREEN}✅ Log files removed${NC}"
     else
         echo -e "${BLUE}ℹ️  Log directory not found${NC}"
@@ -106,8 +106,8 @@ remove_logs() {
 # Function to remove data files
 remove_data() {
     echo -e "${YELLOW}🗑️  Removing data files...${NC}"
-    if [ -d /var/lib/hermes ]; then
-        rm -rf /var/lib/hermes
+    if [ -d /var/lib/sarabis ]; then
+        rm -rf /var/lib/sarabis
         echo -e "${GREEN}✅ Data files removed${NC}"
     else
         echo -e "${BLUE}ℹ️  Data directory not found${NC}"
@@ -117,8 +117,8 @@ remove_data() {
 # Function to remove configuration
 remove_config() {
     echo -e "${YELLOW}🗑️  Removing configuration...${NC}"
-    if [ -d /etc/hermes ]; then
-        rm -rf /etc/hermes
+    if [ -d /etc/sarabis ]; then
+        rm -rf /etc/sarabis
         echo -e "${GREEN}✅ Configuration removed${NC}"
     else
         echo -e "${BLUE}ℹ️  Config directory not found${NC}"
@@ -128,9 +128,9 @@ remove_config() {
 # Function to remove temporary files
 remove_temp_files() {
     echo -e "${YELLOW}🗑️  Removing temporary files...${NC}"
-    rm -rf /tmp/hermes_* 2>/dev/null || true
-    rm -rf /tmp/Hermes 2>/dev/null || true
-    rm -rf /tmp/hermes 2>/dev/null || true
+    rm -rf /tmp/sarabis_* 2>/dev/null || true
+    rm -rf /tmp/sarabis 2>/dev/null || true
+    rm -rf /tmp/sarabis 2>/dev/null || true
     echo -e "${GREEN}✅ Temporary files removed${NC}"
 }
 
@@ -139,18 +139,18 @@ remove_from_dpkg() {
     echo -e "${YELLOW}📦 Removing from dpkg database...${NC}"
     
     # Check if package exists
-    if dpkg -l | grep -q "^ii.*hermes"; then
-        if confirm "Remove Hermes from dpkg database?"; then
-            dpkg --purge hermes 2>/dev/null || true
+    if dpkg -l | grep -q "^ii.*sarabis"; then
+        if confirm "Remove sarabis from dpkg database?"; then
+            dpkg --purge sarabis 2>/dev/null || true
             echo -e "${GREEN}✅ Removed from dpkg${NC}"
         else
             echo -e "${BLUE}ℹ️  Keeping in dpkg database${NC}"
         fi
-    elif dpkg -l | grep -q "^rc.*hermes"; then
+    elif dpkg -l | grep -q "^rc.*sarabis"; then
         # Package is already removed but has residual config
         echo -e "${YELLOW}⚠️  Found residual config in dpkg${NC}"
         if confirm "Remove residual config from dpkg?"; then
-            dpkg --purge hermes 2>/dev/null || true
+            dpkg --purge sarabis 2>/dev/null || true
             echo -e "${GREEN}✅ Residual config removed${NC}"
         fi
     else
@@ -161,24 +161,24 @@ remove_from_dpkg() {
 # Function to manually clean dpkg status (if needed)
 manual_dpkg_cleanup() {
     echo -e "${YELLOW}🔧 Manual dpkg cleanup...${NC}"
-    if grep -q "Package: hermes" /var/lib/dpkg/status 2>/dev/null; then
-        if confirm "Found hermes entry in dpkg status. Remove it manually?"; then
+    if grep -q "Package: sarabis" /var/lib/dpkg/status 2>/dev/null; then
+        if confirm "Found sarabis entry in dpkg status. Remove it manually?"; then
             # Create backup
             cp /var/lib/dpkg/status /var/lib/dpkg/status.backup
             # Remove the entry
-            sed -i '/Package: hermes/,/^$/d' /var/lib/dpkg/status
+            sed -i '/Package: sarabis/,/^$/d' /var/lib/dpkg/status
             echo -e "${GREEN}✅ Removed from dpkg status${NC}"
         fi
     else
-        echo -e "${BLUE}ℹ️  No hermes entry in dpkg status${NC}"
+        echo -e "${BLUE}ℹ️  No sarabis entry in dpkg status${NC}"
     fi
 }
 
 # Function to remove Python virtual environment
 remove_venv() {
     echo -e "${YELLOW}🐍 Removing virtual environment...${NC}"
-    if [ -d "/usr/share/hermes/venv" ]; then
-        rm -rf /usr/share/hermes/venv
+    if [ -d "/usr/share/sarabis/venv" ]; then
+        rm -rf /usr/share/sarabis/venv
         echo -e "${GREEN}✅ Virtual environment removed${NC}"
     else
         echo -e "${BLUE}ℹ️  Virtual environment not found${NC}"
@@ -188,7 +188,7 @@ remove_venv() {
 # Function to remove Python packages (optional)
 remove_python_packages() {
     echo -e "${YELLOW}🐍 Removing Python packages (optional)...${NC}"
-    if confirm "Do you want to remove Hermes-specific Python packages?"; then
+    if confirm "Do you want to remove sarabis-specific Python packages?"; then
         echo -e "${YELLOW}📦 Removing Python packages...${NC}"
         
         # Check if pip3 is available
@@ -224,33 +224,33 @@ remove_python_packages() {
 
 # Function to clean up user accounts
 remove_user_accounts() {
-    echo -e "${YELLOW}👤 Removing hermes user accounts (if any)...${NC}"
+    echo -e "${YELLOW}👤 Removing sarabis user accounts (if any)...${NC}"
     
-    # Check if hermes user exists
-    if id "hermes" &>/dev/null; then
-        if confirm "Remove 'hermes' user account?"; then
-            userdel -r hermes 2>/dev/null || true
+    # Check if sarabis user exists
+    if id "sarabis" &>/dev/null; then
+        if confirm "Remove 'sarabis' user account?"; then
+            userdel -r sarabis 2>/dev/null || true
             echo -e "${GREEN}✅ User account removed${NC}"
         else
             echo -e "${BLUE}ℹ️  Keeping user account${NC}"
         fi
     else
-        echo -e "${BLUE}ℹ️  No hermes user found${NC}"
+        echo -e "${BLUE}ℹ️  No sarabis user found${NC}"
     fi
 }
 
 # Function to check for running processes
 check_running_processes() {
-    echo -e "${YELLOW}🔍 Checking for running Hermes processes...${NC}"
-    if pgrep -f "hermes" > /dev/null 2>&1; then
-        echo -e "${YELLOW}⚠️  Found running Hermes processes:${NC}"
-        ps aux | grep hermes | grep -v grep
+    echo -e "${YELLOW}🔍 Checking for running sarabis processes...${NC}"
+    if pgrep -f "sarabis" > /dev/null 2>&1; then
+        echo -e "${YELLOW}⚠️  Found running sarabis processes:${NC}"
+        ps aux | grep sarabis | grep -v grep
         if confirm "Kill these processes?"; then
-            pkill -f hermes 2>/dev/null || true
+            pkill -f sarabis 2>/dev/null || true
             echo -e "${GREEN}✅ Processes killed${NC}"
         fi
     else
-        echo -e "${BLUE}ℹ️  No running Hermes processes found${NC}"
+        echo -e "${BLUE}ℹ️  No running sarabis processes found${NC}"
     fi
 }
 
@@ -261,38 +261,38 @@ verify_removal() {
     local found=false
     
     # Check for files
-    if [ -d "/usr/share/hermes" ] || [ -d "/var/log/hermes" ] || [ -d "/var/lib/hermes" ] || [ -d "/etc/hermes" ]; then
+    if [ -d "/usr/share/sarabis" ] || [ -d "/var/log/sarabis" ] || [ -d "/var/lib/sarabis" ] || [ -d "/etc/sarabis" ]; then
         echo -e "${RED}❌ Some directories still exist:${NC}"
-        [ -d "/usr/share/hermes" ] && echo "  - /usr/share/hermes"
-        [ -d "/var/log/hermes" ] && echo "  - /var/log/hermes"
-        [ -d "/var/lib/hermes" ] && echo "  - /var/lib/hermes"
-        [ -d "/etc/hermes" ] && echo "  - /etc/hermes"
+        [ -d "/usr/share/sarabis" ] && echo "  - /usr/share/sarabis"
+        [ -d "/var/log/sarabis" ] && echo "  - /var/log/sarabis"
+        [ -d "/var/lib/sarabis" ] && echo "  - /var/lib/sarabis"
+        [ -d "/etc/sarabis" ] && echo "  - /etc/sarabis"
         found=true
     fi
     
     # Check for files
-    if [ -f "/usr/bin/hermes" ] || [ -f "/etc/systemd/system/hermes.service" ]; then
+    if [ -f "/usr/bin/sarabis" ] || [ -f "/etc/systemd/system/sarabis.service" ]; then
         echo -e "${RED}❌ Some files still exist:${NC}"
-        [ -f "/usr/bin/hermes" ] && echo "  - /usr/bin/hermes"
-        [ -f "/etc/systemd/system/hermes.service" ] && echo "  - /etc/systemd/system/hermes.service"
+        [ -f "/usr/bin/sarabis" ] && echo "  - /usr/bin/sarabis"
+        [ -f "/etc/systemd/system/sarabis.service" ] && echo "  - /etc/systemd/system/sarabis.service"
         found=true
     fi
     
     # Check dpkg
-    if dpkg -l | grep -q hermes 2>/dev/null; then
+    if dpkg -l | grep -q sarabis 2>/dev/null; then
         echo -e "${RED}❌ Still in dpkg database:${NC}"
-        dpkg -l | grep hermes
+        dpkg -l | grep sarabis
         found=true
     fi
     
     if [ "$found" = false ]; then
-        echo -e "${GREEN}✅ All traces of Hermes have been removed!${NC}"
+        echo -e "${GREEN}✅ All traces of sarabis have been removed!${NC}"
     fi
 }
 
 # Main removal process
 main() {
-    echo -e "${RED}⚠️  WARNING: This will completely remove Hermes Security Analyzer${NC}"
+    echo -e "${RED}⚠️  WARNING: This will completely remove sarabis Security Analyzer${NC}"
     echo -e "${RED}⚠️  Including all configuration, logs, and data!${NC}"
     echo ""
     
@@ -336,26 +336,26 @@ main() {
     verify_removal
     
     echo ""
-    echo -e "${GREEN}✅ Hermes Security Analyzer has been removed!${NC}"
+    echo -e "${GREEN}✅ sarabis Security Analyzer has been removed!${NC}"
     echo ""
     echo -e "${BLUE}📋 Summary of removed items:${NC}"
-    echo "  - Systemd service: /etc/systemd/system/hermes.service"
-    echo "  - Launcher: /usr/bin/hermes"
-    echo "  - Desktop entry: /usr/share/applications/hermes.desktop"
-    echo "  - Application: /usr/share/hermes"
-    echo "  - Logs: /var/log/hermes"
-    echo "  - Data: /var/lib/hermes"
-    echo "  - Configuration: /etc/hermes"
-    echo "  - Temporary files: /tmp/hermes_*"
-    echo "  - Virtual environment: /usr/share/hermes/venv"
+    echo "  - Systemd service: /etc/systemd/system/sarabis.service"
+    echo "  - Launcher: /usr/bin/sarabis"
+    echo "  - Desktop entry: /usr/share/applications/sarabis.desktop"
+    echo "  - Application: /usr/share/sarabis"
+    echo "  - Logs: /var/log/sarabis"
+    echo "  - Data: /var/lib/sarabis"
+    echo "  - Configuration: /etc/sarabis"
+    echo "  - Temporary files: /tmp/sarabis_*"
+    echo "  - Virtual environment: /usr/share/sarabis/venv"
     echo ""
     echo -e "${BLUE}ℹ️  To verify removal:${NC}"
-    echo "  - Check if service exists: systemctl list-units | grep hermes"
-    echo "  - Check if files remain: ls -la /usr/share/hermes"
-    echo "  - Check dpkg: dpkg -l | grep hermes"
+    echo "  - Check if service exists: systemctl list-units | grep sarabis"
+    echo "  - Check if files remain: ls -la /usr/share/sarabis"
+    echo "  - Check dpkg: dpkg -l | grep sarabis"
     echo ""
     echo -e "${YELLOW}📝 Note: If you want to reinstall, you can use:${NC}"
-    echo "  sudo dpkg -i hermes_1.0.0_all.deb"
+    echo "  sudo dpkg -i sarabis_1.0.0_all.deb"
     echo ""
 }
 

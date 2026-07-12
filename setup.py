@@ -5,7 +5,7 @@ with open("requirements.txt") as f:
     requirements = f.read().splitlines()
 
 setup(
-    name='Hermes',
+    name='sarabis',
     version='1.0',
     packages=find_packages(where='app'),
     package_dir={'': 'app'},

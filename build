@@ -11,13 +11,13 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-echo -e "${GREEN}🚀 Building .deb package for Hermes Security Analyzer${NC}"
+echo -e "${GREEN}🚀 Building .deb package for sarabis Security Analyzer${NC}"
 
 # Configuration
-APP_NAME="hermes"
+APP_NAME="sarabis"
 VERSION="1.0.0"
 MAINTAINER="KYGnus <kygnus.co@proton.me>"
-DESCRIPTION="Hermes Security Analyzer - Comprehensive remote Linux system security analysis platform"
+DESCRIPTION="sarabis Security Analyzer - Comprehensive remote Linux system security analysis platform"
 ARCHITECTURE="all"
 DEB_DIR="deb_package"
 DEB_ROOT="${DEB_DIR}/${APP_NAME}_${VERSION}_${ARCHITECTURE}"
@@ -50,7 +50,7 @@ Architecture: ${ARCHITECTURE}
 Maintainer: ${MAINTAINER}
 Description: ${DESCRIPTION}
 Depends: python3, python3-pip, python3-venv, python3-dev, gcc, g++, openssh-client
-Homepage: https://github.com/KooshaYeganeh/Hermes
+Homepage: https://github.com/KooshaYeganeh/sarabis
 EOF
 
 # Create pre-installation script
@@ -58,7 +58,7 @@ cat > ${DEB_ROOT}/DEBIAN/preinst << 'EOF'
 #!/bin/bash
 set -e
 
-echo "🔧 Preparing to install Hermes Security Analyzer..."
+echo "🔧 Preparing to install sarabis Security Analyzer..."
 
 # Check if Python 3 is installed
 if ! command -v python3 &> /dev/null; then
@@ -68,10 +68,10 @@ if ! command -v python3 &> /dev/null; then
 fi
 
 # Create necessary directories
-mkdir -p /usr/share/hermes
-mkdir -p /var/log/hermes
-mkdir -p /var/lib/hermes/uploads
-mkdir -p /var/lib/hermes/reports
+mkdir -p /usr/share/sarabis
+mkdir -p /var/log/sarabis
+mkdir -p /var/lib/sarabis/uploads
+mkdir -p /var/lib/sarabis/reports
 
 echo "✅ Pre-installation checks passed"
 EOF
@@ -83,14 +83,14 @@ cat > ${DEB_ROOT}/DEBIAN/postinst << 'EOF'
 #!/bin/bash
 set -e
 
-echo "🔧 Setting up Hermes Security Analyzer..."
+echo "🔧 Setting up sarabis Security Analyzer..."
 
-APP_DIR="/usr/share/hermes"
+APP_DIR="/usr/share/sarabis"
 
 # Create necessary directories
-mkdir -p /var/log/hermes
-mkdir -p /var/lib/hermes/uploads
-mkdir -p /var/lib/hermes/reports
+mkdir -p /var/log/sarabis
+mkdir -p /var/lib/sarabis/uploads
+mkdir -p /var/lib/sarabis/reports
 
 # Check if Python 3 is available
 if ! command -v python3 &> /dev/null; then
@@ -105,7 +105,7 @@ if ! command -v pip3 &> /dev/null; then
 fi
 
 # Change to app directory
-cd /usr/share/hermes
+cd /usr/share/sarabis
 
 # Remove existing virtual environment if it exists
 rm -rf venv
@@ -133,10 +133,10 @@ fi
 deactivate
 
 # Create settings.py template if it doesn't exist
-if [ ! -f "/etc/hermes/settings.py" ]; then
+if [ ! -f "/etc/sarabis/settings.py" ]; then
     echo "📝 Creating default configuration..."
-    cat > /etc/hermes/settings.py << 'SETTINGS'
-# Hermes Security Analyzer - Configuration File
+    cat > /etc/sarabis/settings.py << 'SETTINGS'
+# sarabis Security Analyzer - Configuration File
 import os
 
 # SSH Configuration (CHANGE THESE!)
@@ -152,7 +152,7 @@ SESSION_PERMANENT = False
 PERMANENT_SESSION_LIFETIME = 3600
 
 # Paths
-LOG_DIR = '/var/log/hermes'
+LOG_DIR = '/var/log/sarabis'
 REPORT_DIR = os.path.join(LOG_DIR, 'reports')
 
 # Cache Settings
@@ -168,27 +168,27 @@ HOST = '0.0.0.0'
 PORT = 5050
 DEBUG = False
 SETTINGS
-    echo "ℹ️  Default configuration created at /etc/hermes/settings.py"
+    echo "ℹ️  Default configuration created at /etc/sarabis/settings.py"
 fi
 
 # Create launcher script - FIXED to point to app/main.py
-cat > /usr/bin/hermes << 'LAUNCHER'
+cat > /usr/bin/sarabis << 'LAUNCHER'
 #!/bin/bash
-cd /usr/share/hermes
-export PYTHONPATH=/usr/share/hermes
+cd /usr/share/sarabis
+export PYTHONPATH=/usr/share/sarabis
 source venv/bin/activate
 export FLASK_APP=app/main.py
 export FLASK_ENV=production
-export HERMES_CONFIG=/etc/hermes/settings.py
+export HERMES_CONFIG=/etc/sarabis/settings.py
 exec python app/main.py "$@"
 LAUNCHER
 
-chmod 755 /usr/bin/hermes
+chmod 755 /usr/bin/sarabis
 
 # Create systemd service file - FIXED to point to app/main.py
-cat > /etc/systemd/system/hermes.service << 'SERVICE'
+cat > /etc/systemd/system/sarabis.service << 'SERVICE'
 [Unit]
-Description=Hermes Security Analyzer Service
+Description=sarabis Security Analyzer Service
 After=network.target
 Wants=network.target
 
@@ -196,17 +196,17 @@ Wants=network.target
 Type=simple
 User=root
 Group=root
-WorkingDirectory=/usr/share/hermes
-Environment="PATH=/usr/share/hermes/venv/bin:/usr/local/bin:/usr/bin:/bin"
+WorkingDirectory=/usr/share/sarabis
+Environment="PATH=/usr/share/sarabis/venv/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="FLASK_APP=app/main.py"
 Environment="FLASK_ENV=production"
-Environment="HERMES_CONFIG=/etc/hermes/settings.py"
-Environment="PYTHONPATH=/usr/share/hermes"
-ExecStart=/usr/share/hermes/venv/bin/python /usr/share/hermes/app/main.py
+Environment="HERMES_CONFIG=/etc/sarabis/settings.py"
+Environment="PYTHONPATH=/usr/share/sarabis"
+ExecStart=/usr/share/sarabis/venv/bin/python /usr/share/sarabis/app/main.py
 Restart=always
 RestartSec=10
-StandardOutput=append:/var/log/hermes/access.log
-StandardError=append:/var/log/hermes/error.log
+StandardOutput=append:/var/log/sarabis/access.log
+StandardError=append:/var/log/sarabis/error.log
 
 [Install]
 WantedBy=multi-user.target
@@ -216,17 +216,17 @@ SERVICE
 systemctl daemon-reload
 
 # Set permissions
-chown -R root:root /usr/share/hermes
-chmod 755 /usr/share/hermes
-chmod -R 755 /usr/share/hermes/app
-chmod 755 /var/log/hermes
-chmod 755 /var/lib/hermes/uploads
-chmod 755 /var/lib/hermes/reports
-chmod 644 /etc/hermes/settings.py
+chown -R root:root /usr/share/sarabis
+chmod 755 /usr/share/sarabis
+chmod -R 755 /usr/share/sarabis/app
+chmod 755 /var/log/sarabis
+chmod 755 /var/lib/sarabis/uploads
+chmod 755 /var/lib/sarabis/reports
+chmod 644 /etc/sarabis/settings.py
 
 # Create admin credentials file
 echo "🔐 Default credentials: admin/admin (CHANGE IMMEDIATELY!)"
-cat > /usr/share/hermes/.admin_credentials << 'CRED'
+cat > /usr/share/sarabis/.admin_credentials << 'CRED'
 Username: admin
 Password: admin
 ⚠️  CHANGE THESE CREDENTIALS IMMEDIATELY!
@@ -236,19 +236,19 @@ echo ""
 echo "✅ Installation complete!"
 echo ""
 echo "📋 To run the app directly:"
-echo "  hermes"
+echo "  sarabis"
 echo ""
 echo "🔗 Or use systemd service:"
-echo "  sudo systemctl start hermes"
-echo "  sudo systemctl enable hermes"
+echo "  sudo systemctl start sarabis"
+echo "  sudo systemctl enable sarabis"
 echo ""
 echo "🌐 The application will be available at: http://localhost:5050"
 echo ""
 echo "🔐 Default credentials: admin/admin (CHANGE IMMEDIATELY!)"
 echo ""
-echo "📝 Configuration: /etc/hermes/settings.py"
-echo "📊 Reports: /var/lib/hermes/reports/"
-echo "📝 Logs: /var/log/hermes/"
+echo "📝 Configuration: /etc/sarabis/settings.py"
+echo "📊 Reports: /var/lib/sarabis/reports/"
+echo "📝 Logs: /var/log/sarabis/"
 EOF
 
 chmod 755 ${DEB_ROOT}/DEBIAN/postinst
@@ -258,30 +258,30 @@ cat > ${DEB_ROOT}/DEBIAN/postrm << 'EOF'
 #!/bin/bash
 set -e
 
-echo "🧹 Removing Hermes Security Analyzer..."
+echo "🧹 Removing sarabis Security Analyzer..."
 
 # Stop service if running
-systemctl stop hermes 2>/dev/null || true
-systemctl disable hermes 2>/dev/null || true
+systemctl stop sarabis 2>/dev/null || true
+systemctl disable sarabis 2>/dev/null || true
 
 # Remove systemd service
-rm -f /etc/systemd/system/hermes.service
+rm -f /etc/systemd/system/sarabis.service
 systemctl daemon-reload 2>/dev/null || true
 
 # Remove launcher
-rm -f /usr/bin/hermes
+rm -f /usr/bin/sarabis
 
 # Ask about removing data
 read -p "Remove application data and virtual environment? (y/N): " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    rm -rf /usr/share/hermes
-    rm -rf /var/log/hermes
-    rm -rf /var/lib/hermes
-    rm -rf /etc/hermes
+    rm -rf /usr/share/sarabis
+    rm -rf /var/log/sarabis
+    rm -rf /var/lib/sarabis
+    rm -rf /etc/sarabis
     echo "✅ Data removed"
 else
-    echo "ℹ️ Data preserved in /usr/share/hermes"
+    echo "ℹ️ Data preserved in /usr/share/sarabis"
 fi
 EOF
 
@@ -351,21 +351,21 @@ fi
 
 # Create README
 cat > ${DEB_ROOT}/usr/share/doc/${APP_NAME}/README << 'EOF'
-Hermes Security Analyzer
+sarabis Security Analyzer
 ========================
 A Comprehensive Remote System Security Analysis Platform
 
 Quick Start
 -----------
-1. Edit configuration: sudo nano /etc/hermes/settings.py
+1. Edit configuration: sudo nano /etc/sarabis/settings.py
    (Update SSH credentials for your target systems)
 
 2. Run the application:
-   $ hermes
+   $ sarabis
 
 3. Or use systemd:
-   $ sudo systemctl start hermes
-   $ sudo systemctl enable hermes
+   $ sudo systemctl start sarabis
+   $ sudo systemctl enable sarabis
 
 4. Access: http://localhost:5050
 
@@ -384,17 +384,17 @@ Features
 - User Analysis
 - Hardening Checks
 
-For more info: https://github.com/KooshaYeganeh/Hermes
+For more info: https://github.com/KYGnus/sarabis
 EOF
 
 # Create .desktop file
-cat > ${DEB_ROOT}/usr/share/applications/hermes.desktop << 'EOF'
+cat > ${DEB_ROOT}/usr/share/applications/sarabis.desktop << 'EOF'
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=Hermes Security Analyzer
+Name=sarabis Security Analyzer
 Comment=Comprehensive Linux Security Analysis Platform
-Exec=hermes
+Exec=sarabis
 Icon=security
 Terminal=false
 Categories=Network;Security;System;
@@ -431,7 +431,7 @@ echo -e "${GREEN}Or with apt:${NC}"
 echo "  sudo apt-get install ./${APP_NAME}_${VERSION}_${ARCHITECTURE}.deb"
 echo ""
 echo -e "${YELLOW}After installation:${NC}"
-echo "  1. Edit /etc/hermes/settings.py with your SSH credentials"
-echo "  2. Start: sudo systemctl start hermes"
+echo "  1. Edit /etc/sarabis/settings.py with your SSH credentials"
+echo "  2. Start: sudo systemctl start sarabis"
 echo "  3. Access: http://localhost:5050"
 echo "  4. Login: admin/admin (CHANGE IMMEDIATELY!)"

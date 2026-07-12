@@ -1,4 +1,4 @@
-# Hermes Security Analyzer
+# sarabis Security Analyzer
 
 **A Comprehensive Remote System Security Analysis Platform**
 
@@ -18,7 +18,7 @@
 
 ## 🚀 Overview
 
-**Hermes Security Analyzer** is a powerful Flask-based web application designed for comprehensive remote Linux system security analysis. It performs deep security assessments without making any modifications to the target systems, making it ideal for security audits, incident response, and compliance assessments.
+**sarabis Security Analyzer** is a powerful Flask-based web application designed for comprehensive remote Linux system security analysis. It performs deep security assessments without making any modifications to the target systems, making it ideal for security audits, incident response, and compliance assessments.
 
 ### Key Features
 - **Read-Only Analysis**: Performs deep security analysis without changing the target system
@@ -62,7 +62,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Hermes Security Analyzer                  │
+│                    sarabis Security Analyzer                  │
 ├─────────────────────────────────────────────────────────────┤
 │  Web Interface (Flask + Modern Design)                      │
 │  ├── Dashboard                                              │
@@ -89,7 +89,7 @@
 
 ## 📋 Prerequisites
 
-### Local Machine (Where Hermes runs)
+### Local Machine (Where sarabis runs)
 - **Python 3.9+** (Python 3.10, 3.11, 3.12 recommended)
 - Modern web browser
 - 4GB+ RAM (8GB recommended)
@@ -108,7 +108,7 @@
 #### Download and Install
 ```bash
 # Download the .deb package
-wget https://github.com/KooshaYeganeh/Hermes/releases/latest/download/hermes_1.0.0_all.deb
+wget https://github.com/KooshaYeganeh/sarabis/releases/latest/download/hermes_1.0.0_all.deb
 
 # Install the package
 sudo dpkg -i hermes_1.0.0_all.deb
@@ -120,8 +120,8 @@ sudo apt-get install -f
 #### Build from Source
 ```bash
 # Clone the repository
-git clone https://github.com/KooshaYeganeh/Hermes.git
-cd Hermes
+git clone https://github.com/KooshaYeganeh/sarabis.git
+cd sarabis
 
 # Build the .deb package
 chmod +x build_deb.sh
@@ -136,8 +136,8 @@ sudo apt-get install -f
 
 ```bash
 # Clone the repository
-git clone https://github.com/KooshaYeganeh/Hermes.git
-cd Hermes
+git clone https://github.com/KooshaYeganeh/sarabis.git
+cd sarabis
 
 # Create and activate virtual environment
 python -m venv venv
@@ -152,7 +152,7 @@ python app/main.py
 
 ## 📦 Package Installation Details
 
-When installed via .deb package, Hermes is organized as follows:
+When installed via .deb package, sarabis is organized as follows:
 
 | Location | Purpose |
 |----------|---------|
@@ -182,7 +182,7 @@ SSH_USERNAME = "your_username"
 SSH_PASSWORD = "your_password"  # Or use SSH_KEY
 ```
 
-#### 2. Start Hermes
+#### 2. Start sarabis
 
 **Option A: Using systemd service (Recommended)**
 ```bash
@@ -340,13 +340,13 @@ DEBUG = False
 ## 📋 Systemd Service Management
 
 ```bash
-# Start Hermes service
+# Start sarabis service
 sudo systemctl start hermes
 
-# Stop Hermes service
+# Stop sarabis service
 sudo systemctl stop hermes
 
-# Restart Hermes service
+# Restart sarabis service
 sudo systemctl restart hermes
 
 # Check status
@@ -367,7 +367,7 @@ sudo journalctl -u hermes -f
 ### Complete Removal
 ```bash
 # Download the removal script
-wget https://raw.githubusercontent.com/KooshaYeganeh/Hermes/main/remove_hermes.sh
+wget https://raw.githubusercontent.com/KooshaYeganeh/sarabis/main/remove_hermes.sh
 
 # Make it executable
 chmod +x remove_hermes.sh
@@ -461,7 +461,7 @@ GPL-3.0 License - See [LICENSE](LICENSE) for details
 
 ## 📞 Support
 
-- **GitHub Issues**: [Report a bug](https://github.com/KooshaYeganeh/Hermes/issues)
+- **GitHub Issues**: [Report a bug](https://github.com/KooshaYeganeh/sarabis/issues)
 - **Email**: kygnus.co@proton.me
 - **Telegram**: [@KYGnus](https://t.me/KYGnus)
 
@@ -473,6 +473,6 @@ GPL-3.0 License - See [LICENSE](LICENSE) for details
     <a href="https://kygnus.github.io">Website</a> ·
     <a href="mailto:kygnus.co@proton.me">Email</a> ·
     <a href="https://t.me/KYGnus">Telegram</a> ·
-    <a href="https://github.com/KooshaYeganeh/Hermes">GitHub</a>
+    <a href="https://github.com/KYGnus/sarabis">GitHub</a>
   </p>
 </div>
