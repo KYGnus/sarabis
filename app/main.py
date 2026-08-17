@@ -23,7 +23,7 @@ from io import StringIO  # Add this import
 
 
 app = Flask(__name__)
-app.secret_key = 'Hermes_Analyzer'
+app.secret_key = 'Sarabi Security'
 
 # Load configuration from settings.py
 app.config.update(
@@ -2300,7 +2300,7 @@ def generate_html_report(results, report_id):
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>گزارش تحلیل امنیت - Hermes</title>
+        <title>گزارش تحلیل امنیت - Sarabis</title>
         <style>
             * {{ margin: 0; padding: 0; box-sizing: border-box; }}
             body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; }}
@@ -2333,7 +2333,7 @@ def generate_html_report(results, report_id):
     </head>
     <body>
         <div class="header">
-            <h1>🛡️ گزارش تحلیل امنیت Hermes</h1>
+            <h1>🛡️ گزارش تحلیل امنیت Sarabis</h1>
             <p>شناسه گزارش: {report_id}</p>
             <p>تاریخ: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
             <p>سیستم: {results.get('system_info', {}).get('hostname', 'Unknown')}</p>
@@ -2500,7 +2500,7 @@ def generate_html_report(results, report_id):
                 <a href="{url_for('export_report', report_id=report_id)}" class="btn" style="background: #6c757d;">📥 دریافت JSON</a>
             </div>
             <div class="footer">
-                <p>تولید شده توسط Hermes Security Analyzer</p>
+                <p>تولید شده توسط Sarabis Security Analyzer</p>
                 <p style="font-size: 12px;">این گزارش فقط برای اهداف تحلیلی است و هیچ تغییری در سیستم اعمال نمی‌کند</p>
             </div>
         </div>
@@ -2657,7 +2657,7 @@ if __name__ == '__main__':
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=[
             RotatingFileHandler(
-                os.path.join(app.config['LOG_DIR'], 'hermes_analyzer.log'),
+                os.path.join(app.config['LOG_DIR'], 'sarabi_security.log'),
                 maxBytes=1000000,
                 backupCount=5
             ),

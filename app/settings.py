@@ -10,7 +10,7 @@ PERMANENT_SESSION_LIFETIME = 3600
 MAX_CONTENT_LENGTH = 16 * 1024 * 1024
 
 # SSH Configuration
-SSH_HOST = "192.168.1.4"
+SSH_HOST = "128.140.116.175"
 SSH_PORT = 22
 SSH_USERNAME = "koosha"
 SSH_PASSWORD = "K102030k"
@@ -42,7 +42,7 @@ if not os.path.exists(QUARANTINE_DIR):
 else:
     print(f"Directory '{QUARANTINE_DIR}' already exists")
 
-LOG_DIR = '/tmp/Hermes'
+LOG_DIR = '/tmp/sarabis'
 
 if not os.path.exists(LOG_DIR):
     try:
