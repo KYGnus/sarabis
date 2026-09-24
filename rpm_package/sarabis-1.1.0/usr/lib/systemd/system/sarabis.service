@@ -1,0 +1,16 @@
+[Unit]
+Description=sarabis Security Analyzer
+After=network.target
+
+[Service]
+Type=simple
+
+WorkingDirectory=/usr/share/sarabis
+
+ExecStart=/usr/share/sarabis/venv/bin/python /usr/share/sarabis/app/main.py
+
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,20 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+
+Name=sarabis Security Analyzer
+GenericName=Linux Security Analyzer
+
+Comment=Comprehensive Linux Security Analysis Platform
+
+Exec=/usr/bin/sarabis
+TryExec=/usr/bin/sarabis
+
+Icon=security
+
+Terminal=false
+StartupNotify=true
+
+Categories=Network;Security;System;
+
+Keywords=security;linux;audit;scanner;ssh;analysis;

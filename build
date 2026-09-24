@@ -1,30 +1,75 @@
 #!/bin/bash
 
-set -e
+set -Eeuo pipefail
 
 # ============================================================
-# sarabis Security Analyzer - Debian Package Builder
+# sarabis Security Analyzer - RPM Package Builder
 # ============================================================
 
 APP_NAME="sarabis"
 VERSION="1.1.0"
-ARCHITECTURE="all"
+RELEASE="1"
+ARCHITECTURE="noarch"
 
 MAINTAINER="KYGnus <kygnus.co@proton.me>"
 DESCRIPTION="sarabis Security Analyzer - Comprehensive remote Linux system security analysis platform"
 
 APP_URL="http://localhost:8080"
+APP_URL_SITE="https://kygnus.github.io/"
 
-DEB_DIR="deb_package"
-DEB_ROOT="${DEB_DIR}/${APP_NAME}_${VERSION}_${ARCHITECTURE}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# ============================================================
+# Source
+# ============================================================
+
+APP_SOURCE_DIR="${SCRIPT_DIR}/app"
+REQUIREMENTS_FILE="${SCRIPT_DIR}/requirements.txt"
+SETUP_FILE="${SCRIPT_DIR}/setup.py"
+
+# ============================================================
+# Build directories
+# ============================================================
+
+BUILD_DIR="${SCRIPT_DIR}/rpm_package"
+
+RPM_ROOT="${BUILD_DIR}/rpmbuild"
+
+SOURCES_DIR="${RPM_ROOT}/SOURCES"
+SPECS_DIR="${RPM_ROOT}/SPECS"
+BUILD_RPM_DIR="${RPM_ROOT}/BUILD"
+BUILDROOT_DIR="${RPM_ROOT}/BUILDROOT"
+RPMS_DIR="${RPM_ROOT}/RPMS"
+SRPMS_DIR="${RPM_ROOT}/SRPMS"
+
+SOURCE_TREE="${BUILD_DIR}/${APP_NAME}-${VERSION}"
+
+TMP_DIR="${BUILD_DIR}/tmp"
+
+# ============================================================
+# Output
+# ============================================================
+
+DIST_DIR="${SCRIPT_DIR}/dist"
+
+PACKAGE_FILE="${DIST_DIR}/${APP_NAME}-${VERSION}-${RELEASE}.${ARCHITECTURE}.rpm"
+
+SPEC_FILE="${SPECS_DIR}/${APP_NAME}.spec"
+
+SOURCE_TARBALL="${SOURCES_DIR}/${APP_NAME}-${VERSION}.tar.gz"
+
+# ============================================================
+# Installation paths
+# ============================================================
 
 APP_INSTALL_DIR="/usr/share/${APP_NAME}"
+
+APP_CODE_DIR="${APP_INSTALL_DIR}/app"
+
 CONFIG_DIR="/etc/${APP_NAME}"
 
-# Application data and runtime files.
-# These are intentionally stored under /var/lib because
-# sarabis is launched by the normal desktop user on antiX.
 DATA_DIR="/var/lib/${APP_NAME}"
+
 UPLOAD_DIR="${DATA_DIR}/uploads"
 REPORT_DIR="${DATA_DIR}/reports"
 LOG_DIR="${DATA_DIR}/logs"
@@ -35,280 +80,267 @@ BIN_FILE="${BIN_DIR}/${APP_NAME}"
 DESKTOP_DIR="/usr/share/applications"
 DESKTOP_FILE="${DESKTOP_DIR}/${APP_NAME}.desktop"
 
-DOC_DIR="/usr/share/doc/${APP_NAME}"
+DOC_DIR="/usr/share/doc/packages/${APP_NAME}"
 
-PACKAGE_FILE="${APP_NAME}_${VERSION}_${ARCHITECTURE}.deb"
+SYSTEMD_DIR="/usr/lib/systemd/system"
+SYSTEMD_FILE="${SYSTEMD_DIR}/${APP_NAME}.service"
+
+# ============================================================
+# Functions
+# ============================================================
+
+die()
+{
+    echo
+    echo "❌ ERROR: $*"
+    echo
+    exit 1
+}
+
+command_exists()
+{
+    command -v "$1" >/dev/null 2>&1
+}
+
+# ============================================================
+# Header
+# ============================================================
 
 echo
 echo "============================================================"
-echo "       ${APP_NAME} Security Analyzer .deb Builder"
+echo "       ${APP_NAME} Security Analyzer RPM Builder"
 echo "============================================================"
 echo
 echo "Package:      ${APP_NAME}"
 echo "Version:      ${VERSION}"
+echo "Release:      ${RELEASE}"
 echo "Architecture: ${ARCHITECTURE}"
 echo "URL:          ${APP_URL}"
 echo
 
 # ============================================================
-# Build requirements
+# Root check
 # ============================================================
 
-echo "🔍 Checking build requirements..."
+if [ "${EUID}" -eq 0 ]; then
 
-if ! command -v dpkg-deb >/dev/null 2>&1; then
-    echo "❌ dpkg-deb is not installed."
-    exit 1
+    die "Do not run this builder as root.
+
+Run:
+
+    ./build-rpm"
+
 fi
 
-if ! command -v python3 >/dev/null 2>&1; then
-    echo "❌ python3 is not installed."
-    exit 1
-fi
-
-echo "✅ Build requirements OK"
-echo
-
 # ============================================================
-# Clean previous build
-# ============================================================
-
-echo "🧹 Cleaning previous builds..."
-
-rm -rf "${DEB_DIR}"
-rm -f "${PACKAGE_FILE}"
-rm -f "${APP_NAME}"_*.deb
-
-mkdir -p "${DEB_ROOT}"
-
-echo
-
-# ============================================================
-# Check application source
+# Check source
 # ============================================================
 
 echo "🔍 Checking application source..."
 
-if [ ! -f "app/main.py" ]; then
-    echo "❌ app/main.py not found."
-    echo "Run this script from the sarabis project directory."
-    exit 1
+if [ ! -d "${APP_SOURCE_DIR}" ]; then
+
+    die "app/ directory not found.
+
+Run this script from the sarabis project directory."
+
+fi
+
+if [ ! -f "${APP_SOURCE_DIR}/main.py" ]; then
+
+    die "app/main.py not found."
+
 fi
 
 echo "✅ app/main.py found"
-echo
 
 # ============================================================
-# Create Debian package structure
+# Check RPM tools
 # ============================================================
-
-echo "📁 Creating Debian package structure..."
-
-mkdir -p "${DEB_ROOT}/DEBIAN"
-
-mkdir -p "${DEB_ROOT}${APP_INSTALL_DIR}/app"
-
-mkdir -p "${DEB_ROOT}${BIN_DIR}"
-mkdir -p "${DEB_ROOT}${DESKTOP_DIR}"
-mkdir -p "${DEB_ROOT}${DOC_DIR}"
-
-mkdir -p "${DEB_ROOT}${CONFIG_DIR}"
-
-mkdir -p "${DEB_ROOT}${DATA_DIR}"
-mkdir -p "${DEB_ROOT}${UPLOAD_DIR}"
-mkdir -p "${DEB_ROOT}${REPORT_DIR}"
-mkdir -p "${DEB_ROOT}${LOG_DIR}"
 
 echo
+echo "🔍 Checking RPM build requirements..."
+
+if ! command_exists rpm || ! command_exists rpmbuild; then
+
+    echo "⚠️ RPM build tools are missing."
+
+    if command_exists zypper; then
+
+        echo "📦 Installing rpm and rpm-build..."
+
+        sudo zypper --non-interactive install rpm rpm-build
+
+    elif command_exists dnf; then
+
+        echo "📦 Installing rpm and rpm-build..."
+
+        sudo dnf install rpm rpm-build
+
+    elif command_exists yum; then
+
+        echo "📦 Installing rpm and rpm-build..."
+
+        sudo yum install rpm rpm-build
+
+    else
+
+        die "Could not find zypper, dnf, or yum."
+
+    fi
+
+fi
+
+if ! command_exists rpm; then
+    die "rpm command is not available."
+fi
+
+if ! command_exists rpmbuild; then
+    die "rpmbuild command is not available."
+fi
+
+echo "✅ rpm found:      $(command -v rpm)"
+echo "✅ rpmbuild found: $(command -v rpmbuild)"
 
 # ============================================================
-# DEBIAN/control
-# ============================================================
-
-echo "📝 Creating DEBIAN/control..."
-
-cat > "${DEB_ROOT}/DEBIAN/control" <<EOF
-Package: ${APP_NAME}
-Version: ${VERSION}
-Section: security
-Priority: optional
-Architecture: ${ARCHITECTURE}
-Maintainer: ${MAINTAINER}
-Depends: python3, python3-pip, python3-venv, python3-dev, gcc, g++, openssh-client, curl, xdg-utils
-Description: ${DESCRIPTION}
- sarabis is a comprehensive Linux security analysis platform.
- It provides remote Linux system security analysis, reporting,
- SSH-based auditing and security assessment capabilities.
-EOF
-
-echo
-
-# ============================================================
-# DEBIAN/preinst
-# ============================================================
-
-echo "📝 Creating preinst script..."
-
-cat > "${DEB_ROOT}/DEBIAN/preinst" <<'EOF'
-#!/bin/bash
-
-set -e
-
-APP_NAME="sarabis"
-
-echo
-echo "Preparing ${APP_NAME} installation..."
-
-# ------------------------------------------------------------
 # Python check
-# ------------------------------------------------------------
-
-if ! command -v python3 >/dev/null 2>&1; then
-    echo "ERROR: python3 is required."
-    exit 1
-fi
-
-# ------------------------------------------------------------
-# Create required directories
-# ------------------------------------------------------------
-
-mkdir -p /etc/sarabis
-
-mkdir -p /var/lib/sarabis
-mkdir -p /var/lib/sarabis/uploads
-mkdir -p /var/lib/sarabis/reports
-mkdir -p /var/lib/sarabis/logs
-
-exit 0
-EOF
-
-chmod 755 "${DEB_ROOT}/DEBIAN/preinst"
+# ============================================================
 
 echo
+echo "🔍 Checking Python..."
+
+if ! command_exists python3; then
+
+    die "python3 is required."
+
+fi
+
+echo "✅ $(python3 --version)"
 
 # ============================================================
-# DEBIAN/postinst
+# Clean previous builds
 # ============================================================
-
-echo "📝 Creating postinst script..."
-
-cat > "${DEB_ROOT}/DEBIAN/postinst" <<'EOF'
-#!/bin/bash
-
-set -e
-
-APP_NAME="sarabis"
-
-APP_DIR="/usr/share/sarabis"
-BIN_FILE="/usr/bin/sarabis"
-
-CONFIG_DIR="/etc/sarabis"
-
-DATA_DIR="/var/lib/sarabis"
-UPLOAD_DIR="/var/lib/sarabis/uploads"
-REPORT_DIR="/var/lib/sarabis/reports"
-LOG_DIR="/var/lib/sarabis/logs"
 
 echo
-echo "============================================================"
-echo " Configuring sarabis Security Analyzer"
-echo "============================================================"
+echo "🧹 Cleaning previous builds..."
+
+rm -rf "${BUILD_DIR}"
+rm -rf "${DIST_DIR}"
+
+mkdir -p \
+    "${SOURCES_DIR}" \
+    "${SPECS_DIR}" \
+    "${BUILD_RPM_DIR}" \
+    "${BUILDROOT_DIR}" \
+    "${RPMS_DIR}" \
+    "${SRPMS_DIR}" \
+    "${TMP_DIR}" \
+    "${DIST_DIR}"
+
+echo "✅ Build directories created."
+
+# ============================================================
+# Create source tree
+# ============================================================
+
 echo
+echo "📁 Creating RPM source tree..."
+
+mkdir -p \
+    "${SOURCE_TREE}${APP_CODE_DIR}" \
+    "${SOURCE_TREE}${CONFIG_DIR}" \
+    "${SOURCE_TREE}${DATA_DIR}" \
+    "${SOURCE_TREE}${UPLOAD_DIR}" \
+    "${SOURCE_TREE}${REPORT_DIR}" \
+    "${SOURCE_TREE}${LOG_DIR}" \
+    "${SOURCE_TREE}${BIN_DIR}" \
+    "${SOURCE_TREE}${DESKTOP_DIR}" \
+    "${SOURCE_TREE}${DOC_DIR}" \
+    "${SOURCE_TREE}${SYSTEMD_DIR}"
+
+echo "✅ Source tree created."
 
 # ============================================================
-# Create directories
+# Copy application
 # ============================================================
 
-echo "📁 Creating application directories..."
+echo
+echo "📦 Copying application files..."
 
-mkdir -p "$CONFIG_DIR"
+cp -a \
+    "${APP_SOURCE_DIR}/." \
+    "${SOURCE_TREE}${APP_CODE_DIR}/"
 
-mkdir -p "$DATA_DIR"
-mkdir -p "$UPLOAD_DIR"
-mkdir -p "$REPORT_DIR"
-mkdir -p "$LOG_DIR"
-
-# ============================================================
-# Determine installing desktop user
-#
-# When installed with:
-#
-#     sudo apt install ./sarabis.deb
-#
-# SUDO_USER normally contains the real desktop user.
-# ============================================================
-
-INSTALL_USER=""
-
-if [ -n "${SUDO_USER:-}" ] && id "$SUDO_USER" >/dev/null 2>&1; then
-    INSTALL_USER="$SUDO_USER"
-fi
-
-if [ -z "$INSTALL_USER" ]; then
-
-    if [ -n "${PKEXEC_UID:-}" ]; then
-
-        INSTALL_USER="$(id -nu "$PKEXEC_UID" 2>/dev/null || true)"
-
-    fi
-
-fi
-
-# Fallback.
-if [ -z "$INSTALL_USER" ]; then
-
-    if [ -n "${USER:-}" ] && id "$USER" >/dev/null 2>&1; then
-        INSTALL_USER="$USER"
-    fi
-
-fi
+echo "✅ Application copied."
 
 # ============================================================
-# Create Python virtual environment
+# requirements.txt
 # ============================================================
 
-if [ ! -d "$APP_DIR/venv" ]; then
+if [ -f "${REQUIREMENTS_FILE}" ]; then
 
-    echo "🐍 Creating Python virtual environment..."
+    echo "📦 Copying requirements.txt..."
 
-    python3 -m venv "$APP_DIR/venv"
+    cp \
+        "${REQUIREMENTS_FILE}" \
+        "${SOURCE_TREE}${APP_INSTALL_DIR}/requirements.txt"
+
+    echo "✅ requirements.txt copied."
+
+else
+
+    echo "⚠️ requirements.txt not found."
 
 fi
 
 # ============================================================
-# Install Python dependencies
+# setup.py
 # ============================================================
 
-if [ -f "$APP_DIR/requirements.txt" ]; then
+if [ -f "${SETUP_FILE}" ]; then
 
-    echo
-    echo "📦 Installing Python dependencies..."
+    echo "📦 Copying setup.py..."
 
-    "$APP_DIR/venv/bin/python" -m pip install \
-        --disable-pip-version-check \
-        --no-input \
-        -r "$APP_DIR/requirements.txt" || {
+    cp \
+        "${SETUP_FILE}" \
+        "${SOURCE_TREE}${APP_INSTALL_DIR}/setup.py"
 
-        echo
-        echo "⚠️ Warning:"
-        echo "Some Python dependencies could not be installed."
-        echo "The Debian package installation will continue."
-        echo
-
-    }
+    echo "✅ setup.py copied."
 
 fi
 
 # ============================================================
-# Create settings.py
+# app/__init__.py
 # ============================================================
 
-if [ ! -f "$CONFIG_DIR/settings.py" ]; then
+if [ ! -f "${SOURCE_TREE}${APP_CODE_DIR}/__init__.py" ]; then
 
-    echo
-    echo "⚙️ Creating configuration..."
+    echo "📄 Creating app/__init__.py..."
 
-    cat > "$CONFIG_DIR/settings.py" <<'PYEOF'
+    touch "${SOURCE_TREE}${APP_CODE_DIR}/__init__.py"
+
+fi
+
+# ============================================================
+# Verify main.py
+# ============================================================
+
+if [ ! -f "${SOURCE_TREE}${APP_CODE_DIR}/main.py" ]; then
+
+    die "main.py was not copied into the RPM source tree."
+
+fi
+
+echo "✅ main.py verified."
+
+# ============================================================
+# Default configuration
+# ============================================================
+
+echo
+echo "⚙️ Creating default configuration..."
+
+cat > "${SOURCE_TREE}${CONFIG_DIR}/settings.py" <<'CONFIGEOF'
 # ============================================================
 # sarabis Security Analyzer Configuration
 # ============================================================
@@ -338,717 +370,129 @@ SECRET_KEY = "sarabis-change-this-secret-key"
 
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "admin"
-PYEOF
+CONFIGEOF
 
-fi
-
-# ============================================================
-# Admin credentials
-# ============================================================
-
-if [ ! -f "$APP_DIR/.admin_credentials" ]; then
-
-    echo "🔐 Creating default admin credentials..."
-
-    cat > "$APP_DIR/.admin_credentials" <<'EOF2'
-username=admin
-password=admin
-EOF2
-
-    chmod 600 "$APP_DIR/.admin_credentials"
-
-fi
+chmod 644 "${SOURCE_TREE}${CONFIG_DIR}/settings.py"
 
 # ============================================================
-# Create /usr/bin/sarabis
-#
-# IMPORTANT:
-# The launcher is created both inside the package archive
-# and here during postinst.
-#
-# This guarantees that the command exists after installation.
+# /usr/bin/sarabis launcher
 # ============================================================
 
 echo
-echo "🔧 Installing sarabis command..."
+echo "🖥️ Creating /usr/bin/sarabis launcher..."
 
-cat > "$BIN_FILE" <<'LAUNCHER'
+cat > "${SOURCE_TREE}${BIN_FILE}" <<'LAUNCHER'
 #!/bin/bash
 
 # ============================================================
-# sarabis launcher
+# sarabis Security Analyzer launcher
 # ============================================================
 
 APP_DIR="/usr/share/sarabis"
+
 APP_URL="http://localhost:8080"
 
 VENV_PYTHON="$APP_DIR/venv/bin/python"
+
 MAIN_APP="$APP_DIR/app/main.py"
 
 DATA_DIR="/var/lib/sarabis"
+
 LOG_DIR="$DATA_DIR/logs"
+
 LOG_FILE="$LOG_DIR/sarabis.log"
 
-# ------------------------------------------------------------
-# Create runtime log directory
-# ------------------------------------------------------------
+# ============================================================
+# Browser
+# ============================================================
 
-mkdir -p "$LOG_DIR" 2>/dev/null || true
+open_browser()
+{
+    if command -v xdg-open >/dev/null 2>&1; then
 
-# ------------------------------------------------------------
-# Application verification
-# ------------------------------------------------------------
+        xdg-open "$APP_URL" >/dev/null 2>&1 &
+
+    elif command -v sensible-browser >/dev/null 2>&1; then
+
+        sensible-browser "$APP_URL" >/dev/null 2>&1 &
+
+    elif command -v firefox >/dev/null 2>&1; then
+
+        firefox "$APP_URL" >/dev/null 2>&1 &
+
+    elif command -v chromium >/dev/null 2>&1; then
+
+        chromium "$APP_URL" >/dev/null 2>&1 &
+
+    elif command -v chromium-browser >/dev/null 2>&1; then
+
+        chromium-browser "$APP_URL" >/dev/null 2>&1 &
+
+    else
+
+        echo "⚠️ No supported browser found."
+        echo "Open manually: $APP_URL"
+
+    fi
+}
+
+# ============================================================
+# Verify application
+# ============================================================
 
 if [ ! -f "$MAIN_APP" ]; then
 
     echo
     echo "❌ ERROR: sarabis application not found:"
+    echo
     echo "   $MAIN_APP"
     echo
 
     exit 1
+
 fi
+
+# ============================================================
+# Verify Python virtual environment
+# ============================================================
 
 if [ ! -x "$VENV_PYTHON" ]; then
 
     echo
     echo "❌ ERROR: Python virtual environment not found:"
+    echo
     echo "   $VENV_PYTHON"
     echo
-
-    echo "Try reinstalling the package:"
-    echo "sudo apt install --reinstall ./sarabis_1.1.0_all.deb"
+    echo "If this is a new installation, wait for package"
+    echo "configuration to finish or reinstall the package."
     echo
 
     exit 1
-fi
-
-# ------------------------------------------------------------
-# Check whether sarabis is already running
-# ------------------------------------------------------------
-
-if command -v curl >/dev/null 2>&1; then
-
-    if curl -fsS --max-time 2 "$APP_URL" >/dev/null 2>&1; then
-
-        echo "sarabis is already running."
-        echo "🌐 Opening: $APP_URL"
-
-        # ----------------------------------------------------
-        # Open browser
-        # ----------------------------------------------------
-
-        if command -v xdg-open >/dev/null 2>&1; then
-
-            xdg-open "$APP_URL" >/dev/null 2>&1 &
-
-        elif command -v sensible-browser >/dev/null 2>&1; then
-
-            sensible-browser "$APP_URL" >/dev/null 2>&1 &
-
-        elif command -v firefox >/dev/null 2>&1; then
-
-            firefox "$APP_URL" >/dev/null 2>&1 &
-
-        elif command -v chromium >/dev/null 2>&1; then
-
-            chromium "$APP_URL" >/dev/null 2>&1 &
-
-        elif command -v chromium-browser >/dev/null 2>&1; then
-
-            chromium-browser "$APP_URL" >/dev/null 2>&1 &
-
-        else
-
-            echo "⚠️ No supported browser found."
-            echo "Open manually: $APP_URL"
-
-        fi
-
-        exit 0
-    fi
 
 fi
 
-# ------------------------------------------------------------
-# Make sure log directory is writable
-# ------------------------------------------------------------
-
-if ! touch "$LOG_FILE" >/dev/null 2>&1; then
-
-    echo
-    echo "⚠️ Warning: Cannot write to:"
-    echo "   $LOG_FILE"
-    echo
-    echo "Trying to continue without file logging..."
-    echo
-
-    LOG_FILE="/tmp/sarabis-${USER:-user}.log"
-
-    touch "$LOG_FILE" 2>/dev/null || true
-
-fi
-
-# ------------------------------------------------------------
-# Start Flask application
-# ------------------------------------------------------------
-
-echo "🚀 Starting sarabis Security Analyzer..."
-echo "🌐 URL: $APP_URL"
-
-if [ -w "$(dirname "$LOG_FILE")" ] ] 2>/dev/null; then
-
-    nohup "$VENV_PYTHON" "$MAIN_APP" "$@" \
-        >> "$LOG_FILE" 2>&1 &
-
-else
-
-    nohup "$VENV_PYTHON" "$MAIN_APP" "$@" \
-        >/dev/null 2>&1 &
-
-fi
-
-SARABIS_PID=$!
-
-echo "sarabis started."
-echo "PID: $SARABIS_PID"
-
-# ------------------------------------------------------------
-# Wait for web interface
-# ------------------------------------------------------------
-
-echo "⏳ Waiting for web interface..."
-
-SERVER_READY=0
-
-for i in $(seq 1 30); do
-
-    sleep 1
-
-    # Check whether process is still alive.
-    if ! kill -0 "$SARABIS_PID" 2>/dev/null; then
-
-        echo
-        echo "❌ sarabis process exited unexpectedly."
-
-        if [ -f "$LOG_FILE" ]; then
-
-            echo
-            echo "Last log output:"
-            tail -n 30 "$LOG_FILE" 2>/dev/null || true
-
-        fi
-
-        exit 1
-    fi
-
-    if command -v curl >/dev/null 2>&1; then
-
-        if curl -fsS --max-time 2 "$APP_URL" >/dev/null 2>&1; then
-
-            SERVER_READY=1
-            break
-
-        fi
-
-    fi
-
-done
-
-# ------------------------------------------------------------
-# Server status
-# ------------------------------------------------------------
-
-if [ "$SERVER_READY" -eq 1 ]; then
-
-    echo "✅ sarabis web interface is ready."
-    echo "🌐 $APP_URL"
-
-else
-
-    echo
-    echo "⚠️ Web interface did not respond within 30 seconds."
-    echo
-    echo "Check:"
-    echo "  $LOG_FILE"
-    echo
-    echo "The process may still be starting."
-    echo
-
-fi
-
-# ------------------------------------------------------------
-# Open browser
-# ------------------------------------------------------------
-
-if command -v xdg-open >/dev/null 2>&1; then
-
-    xdg-open "$APP_URL" >/dev/null 2>&1 &
-
-elif command -v sensible-browser >/dev/null 2>&1; then
-
-    sensible-browser "$APP_URL" >/dev/null 2>&1 &
-
-elif command -v firefox >/dev/null 2>&1; then
-
-    firefox "$APP_URL" >/dev/null 2>&1 &
-
-elif command -v chromium >/dev/null 2>&1; then
-
-    chromium "$APP_URL" >/dev/null 2>&1 &
-
-elif command -v chromium-browser >/dev/null 2>&1; then
-
-    chromium-browser "$APP_URL" >/dev/null 2>&1 &
-
-else
-
-    echo "⚠️ No graphical browser found."
-    echo "Open manually:"
-    echo "  $APP_URL"
-
-fi
-
-exit 0
-LAUNCHER
-
-chmod 755 "$BIN_FILE"
-
-echo "✅ /usr/bin/sarabis created."
-
 # ============================================================
-# Ownership and permissions
+# Create log directory
 # ============================================================
-
-echo
-echo "🔧 Configuring permissions..."
-
-chmod 755 "$APP_DIR"
-chmod 755 "$APP_DIR/app"
-
-find "$APP_DIR/app" \
-    -type f \
-    -name "*.py" \
-    -exec chmod 644 {} \; 2>/dev/null || true
-
-chmod 755 "$BIN_FILE"
-
-# ------------------------------------------------------------
-# Application data
-# ------------------------------------------------------------
-
-chmod 755 "$DATA_DIR"
-chmod 755 "$UPLOAD_DIR"
-chmod 755 "$REPORT_DIR"
-chmod 755 "$LOG_DIR"
-
-# ------------------------------------------------------------
-# Give desktop user ownership of runtime data
-#
-# This is important because sarabis is launched as the normal
-# user rather than as root on antiX.
-# ------------------------------------------------------------
-
-if [ -n "$INSTALL_USER" ] && id "$INSTALL_USER" >/dev/null 2>&1; then
-
-    INSTALL_GROUP="$(id -gn "$INSTALL_USER")"
-
-    echo "👤 Runtime user: $INSTALL_USER"
-    echo "👥 Runtime group: $INSTALL_GROUP"
-
-    chown "$INSTALL_USER:$INSTALL_GROUP" "$DATA_DIR"
-    chown "$INSTALL_USER:$INSTALL_GROUP" "$UPLOAD_DIR"
-    chown "$INSTALL_USER:$INSTALL_GROUP" "$REPORT_DIR"
-    chown "$INSTALL_USER:$INSTALL_GROUP" "$LOG_DIR"
-
-fi
-
-# ------------------------------------------------------------
-# Configuration remains root-owned.
-# ------------------------------------------------------------
-
-chown root:root "$CONFIG_DIR" 2>/dev/null || true
-
-if [ -f "$CONFIG_DIR/settings.py" ]; then
-    chmod 644 "$CONFIG_DIR/settings.py"
-fi
-
-# ============================================================
-# Detect init system
-# ============================================================
-
-echo
-
-if [ -d /run/systemd/system ] && command -v systemctl >/dev/null 2>&1; then
-
-    echo "⚙️ systemd detected."
-
-    cat > /etc/systemd/system/sarabis.service <<'SERVICEEOF'
-[Unit]
-Description=sarabis Security Analyzer
-After=network.target
-
-[Service]
-Type=simple
-WorkingDirectory=/usr/share/sarabis
-ExecStart=/usr/share/sarabis/venv/bin/python /usr/share/sarabis/app/main.py
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-SERVICEEOF
-
-    systemctl daemon-reload || true
-
-    echo
-    echo "Service installed:"
-    echo "  systemctl start sarabis"
-    echo "  systemctl enable sarabis"
-
-else
-
-    echo "ℹ️ antiX / SysVinit / non-systemd environment detected."
-    echo "sarabis will run through:"
-    echo "  /usr/bin/sarabis"
-
-fi
-
-# ============================================================
-# Desktop database
-# ============================================================
-
-if command -v update-desktop-database >/dev/null 2>&1; then
-
-    update-desktop-database \
-        /usr/share/applications \
-        >/dev/null 2>&1 || true
-
-fi
-
-# ============================================================
-# Final launcher verification
-# ============================================================
-
-if [ ! -f "$BIN_FILE" ]; then
-
-    echo
-    echo "❌ ERROR: $BIN_FILE was not created."
-    exit 1
-
-fi
-
-if [ ! -x "$BIN_FILE" ]; then
-
-    echo
-    echo "❌ ERROR: $BIN_FILE is not executable."
-    exit 1
-
-fi
-
-# ============================================================
-# Final installation summary
-# ============================================================
-
-echo
-echo "============================================================"
-echo " sarabis installation completed"
-echo "============================================================"
-echo
-echo "Command:"
-echo "  sarabis"
-echo
-echo "Web interface:"
-echo "  http://localhost:8080"
-echo
-echo "Configuration:"
-echo "  /etc/sarabis/settings.py"
-echo
-echo "Uploads:"
-echo "  /var/lib/sarabis/uploads/"
-echo
-echo "Reports:"
-echo "  /var/lib/sarabis/reports/"
-echo
-echo "Logs:"
-echo "  /var/lib/sarabis/logs/"
-echo
-echo "Log file:"
-echo "  /var/lib/sarabis/logs/sarabis.log"
-echo
-echo "Default credentials:"
-echo "  Username: admin"
-echo "  Password: admin"
-echo
-echo "Launcher:"
-echo "  /usr/bin/sarabis"
-echo
-
-exit 0
-EOF
-
-chmod 755 "${DEB_ROOT}/DEBIAN/postinst"
-
-echo
-
-# ============================================================
-# DEBIAN/postrm
-# ============================================================
-
-echo "📝 Creating postrm script..."
-
-cat > "${DEB_ROOT}/DEBIAN/postrm" <<'EOF'
-#!/bin/bash
-
-set -e
-
-APP_NAME="sarabis"
-
-echo
-echo "sarabis package lifecycle: ${1:-unknown}"
-
-# ============================================================
-# Stop systemd service if one exists
-# ============================================================
-
-if command -v systemctl >/dev/null 2>&1; then
-
-    if [ -f /etc/systemd/system/sarabis.service ]; then
-
-        systemctl stop sarabis.service 2>/dev/null || true
-        systemctl disable sarabis.service 2>/dev/null || true
-
-        rm -f /etc/systemd/system/sarabis.service
-
-        systemctl daemon-reload 2>/dev/null || true
-
-    fi
-
-fi
-
-# ============================================================
-# IMPORTANT
-#
-# Do NOT manually remove /usr/bin/sarabis.
-#
-# It is a package-owned file and dpkg manages it.
-#
-# The previous version manually removed this file from postrm,
-# which caused:
-#
-#   dpkg -L sarabis
-#
-# to report /usr/bin/sarabis while the actual file was missing.
-# ============================================================
-
-case "${1:-}" in
-
-    remove)
-
-        echo "sarabis removed."
-        echo "Package-owned files are managed by dpkg."
-
-        ;;
-
-    purge)
-
-        echo "Purging sarabis configuration..."
-
-        rm -f /etc/systemd/system/sarabis.service
-
-        # Runtime data is intentionally preserved.
-        # Remove manually if required:
-        #
-        #   sudo rm -rf /var/lib/sarabis
-        #
-
-        ;;
-
-    upgrade|abort-upgrade|failed-upgrade)
-
-        echo "Upgrade operation detected."
-        echo "sarabis launcher remains managed by dpkg."
-
-        ;;
-
-    *)
-
-        echo "No destructive launcher cleanup performed."
-
-        ;;
-
-esac
-
-exit 0
-EOF
-
-chmod 755 "${DEB_ROOT}/DEBIAN/postrm"
-
-echo
-
-# ============================================================
-# Copy application
-# ============================================================
-
-echo "📦 Copying application files..."
-
-cp -a app/. "${DEB_ROOT}${APP_INSTALL_DIR}/app/"
-
-echo
-
-# ============================================================
-# requirements.txt
-# ============================================================
-
-echo "📦 Copying requirements.txt..."
-
-if [ -f requirements.txt ]; then
-
-    cp requirements.txt \
-        "${DEB_ROOT}${APP_INSTALL_DIR}/requirements.txt"
-
-    echo "  requirements.txt copied."
-
-else
-
-    echo "⚠️ requirements.txt not found."
-
-fi
-
-echo
-
-# ============================================================
-# Additional files
-# ============================================================
-
-echo "📄 Copying additional files..."
-
-if [ -f setup.py ]; then
-
-    echo "  Copying setup.py..."
-
-    cp setup.py \
-        "${DEB_ROOT}${APP_INSTALL_DIR}/setup.py"
-
-fi
-
-if [ -f LICENSE ]; then
-
-    echo "  Copying LICENSE..."
-
-    cp LICENSE \
-        "${DEB_ROOT}${DOC_DIR}/LICENSE"
-
-fi
-
-if [ -f README.md ]; then
-
-    echo "  Copying README.md..."
-
-    cp README.md \
-        "${DEB_ROOT}${DOC_DIR}/README.md"
-
-fi
-
-# ============================================================
-# app/__init__.py
-# ============================================================
-
-echo
-
-if [ ! -f "${DEB_ROOT}${APP_INSTALL_DIR}/app/__init__.py" ]; then
-
-    echo "📄 Creating app/__init__.py..."
-
-    touch "${DEB_ROOT}${APP_INSTALL_DIR}/app/__init__.py"
-
-fi
-
-# ============================================================
-# Verify main.py
-# ============================================================
-
-echo
-
-if [ -f "${DEB_ROOT}${APP_INSTALL_DIR}/app/main.py" ]; then
-
-    echo "✅ main.py found:"
-    echo "   ${DEB_ROOT}${APP_INSTALL_DIR}/app/main.py"
-
-else
-
-    echo "❌ main.py was not copied."
-
-    exit 1
-
-fi
-
-echo
-
-# ============================================================
-# Create package launcher
-#
-# IMPORTANT:
-# This must happen BEFORE chmod.
-# ============================================================
-
-echo "🖥️ Creating package launcher..."
-
-cat > "${DEB_ROOT}${BIN_FILE}" <<'LAUNCHER'
-#!/bin/bash
-
-APP_DIR="/usr/share/sarabis"
-APP_URL="http://localhost:8080"
-
-VENV_PYTHON="$APP_DIR/venv/bin/python"
-MAIN_APP="$APP_DIR/app/main.py"
-
-DATA_DIR="/var/lib/sarabis"
-LOG_DIR="$DATA_DIR/logs"
-LOG_FILE="$LOG_DIR/sarabis.log"
 
 mkdir -p "$LOG_DIR" 2>/dev/null || true
 
-if [ ! -f "$MAIN_APP" ]; then
-
-    echo "❌ ERROR: sarabis application not found:"
-    echo "$MAIN_APP"
-
-    exit 1
-
-fi
-
-if [ ! -x "$VENV_PYTHON" ]; then
-
-    echo "❌ ERROR: Python virtual environment not found:"
-    echo "$VENV_PYTHON"
-
-    exit 1
-
-fi
-
-# ------------------------------------------------------------
-# Already running?
-# ------------------------------------------------------------
+# ============================================================
+# Check whether sarabis is already running
+# ============================================================
 
 if command -v curl >/dev/null 2>&1; then
 
     if curl -fsS --max-time 2 "$APP_URL" >/dev/null 2>&1; then
 
+        echo
         echo "sarabis is already running."
-        echo "🌐 Opening: $APP_URL"
+        echo
+        echo "🌐 Opening:"
+        echo "   $APP_URL"
+        echo
 
-        if command -v xdg-open >/dev/null 2>&1; then
-            xdg-open "$APP_URL" >/dev/null 2>&1 &
-        elif command -v sensible-browser >/dev/null 2>&1; then
-            sensible-browser "$APP_URL" >/dev/null 2>&1 &
-        elif command -v firefox >/dev/null 2>&1; then
-            firefox "$APP_URL" >/dev/null 2>&1 &
-        elif command -v chromium >/dev/null 2>&1; then
-            chromium "$APP_URL" >/dev/null 2>&1 &
-        elif command -v chromium-browser >/dev/null 2>&1; then
-            chromium-browser "$APP_URL" >/dev/null 2>&1 &
-        fi
+        open_browser
 
         exit 0
 
@@ -1056,9 +500,11 @@ if command -v curl >/dev/null 2>&1; then
 
 fi
 
-# ------------------------------------------------------------
-# Test log file
-# ------------------------------------------------------------
+# ============================================================
+# Determine log file
+# ============================================================
+
+LOG_ENABLED=0
 
 if touch "$LOG_FILE" >/dev/null 2>&1; then
 
@@ -1066,24 +512,32 @@ if touch "$LOG_FILE" >/dev/null 2>&1; then
 
 else
 
-    LOG_ENABLED=0
-
     LOG_FILE="/tmp/sarabis-${USER:-user}.log"
 
     touch "$LOG_FILE" >/dev/null 2>&1 || true
 
-    echo "⚠️ Warning: unable to write to application log directory."
+    echo
+    echo "⚠️ Warning: Cannot write to:"
+    echo
+    echo "   /var/lib/sarabis/logs/"
+    echo
     echo "Using temporary log:"
-    echo "$LOG_FILE"
+    echo
+    echo "   $LOG_FILE"
+    echo
 
 fi
 
-# ------------------------------------------------------------
-# Start Flask
-# ------------------------------------------------------------
+# ============================================================
+# Start Flask application
+# ============================================================
 
+echo
 echo "🚀 Starting sarabis Security Analyzer..."
-echo "🌐 URL: $APP_URL"
+echo
+echo "🌐 URL:"
+echo "   $APP_URL"
+echo
 
 if [ "$LOG_ENABLED" -eq 1 ]; then
 
@@ -1102,10 +556,11 @@ SARABIS_PID=$!
 echo "sarabis started."
 echo "PID: $SARABIS_PID"
 
-# ------------------------------------------------------------
+# ============================================================
 # Wait for server
-# ------------------------------------------------------------
+# ============================================================
 
+echo
 echo "⏳ Waiting for web interface..."
 
 SERVER_READY=0
@@ -1118,11 +573,13 @@ for i in $(seq 1 30); do
 
         echo
         echo "❌ sarabis process exited unexpectedly."
+        echo
 
         if [ -f "$LOG_FILE" ]; then
 
-            echo
             echo "Last log output:"
+            echo
+
             tail -n 30 "$LOG_FILE" 2>/dev/null || true
 
         fi
@@ -1136,6 +593,7 @@ for i in $(seq 1 30); do
         if curl -fsS --max-time 2 "$APP_URL" >/dev/null 2>&1; then
 
             SERVER_READY=1
+
             break
 
         fi
@@ -1144,73 +602,49 @@ for i in $(seq 1 30); do
 
 done
 
-# ------------------------------------------------------------
-# Status
-# ------------------------------------------------------------
+# ============================================================
+# Server status
+# ============================================================
+
+echo
 
 if [ "$SERVER_READY" -eq 1 ]; then
 
     echo "✅ sarabis web interface is ready."
+    echo
     echo "🌐 $APP_URL"
 
 else
 
-    echo
     echo "⚠️ Web interface did not respond within 30 seconds."
+    echo
     echo "Check:"
+    echo
     echo "  $LOG_FILE"
 
 fi
 
-# ------------------------------------------------------------
+# ============================================================
 # Open browser
-# ------------------------------------------------------------
+# ============================================================
 
-if command -v xdg-open >/dev/null 2>&1; then
-
-    xdg-open "$APP_URL" >/dev/null 2>&1 &
-
-elif command -v sensible-browser >/dev/null 2>&1; then
-
-    sensible-browser "$APP_URL" >/dev/null 2>&1 &
-
-elif command -v firefox >/dev/null 2>&1; then
-
-    firefox "$APP_URL" >/dev/null 2>&1 &
-
-elif command -v chromium >/dev/null 2>&1; then
-
-    chromium "$APP_URL" >/dev/null 2>&1 &
-
-elif command -v chromium-browser >/dev/null 2>&1; then
-
-    chromium-browser "$APP_URL" >/dev/null 2>&1 &
-
-else
-
-    echo "⚠️ No graphical browser found."
-    echo "Open manually:"
-    echo "  $APP_URL"
-
-fi
+open_browser
 
 exit 0
 LAUNCHER
 
-chmod 755 "${DEB_ROOT}${BIN_FILE}"
+chmod 755 "${SOURCE_TREE}${BIN_FILE}"
 
-echo "✅ Package launcher created:"
-echo "   ${DEB_ROOT}${BIN_FILE}"
-
-echo
+echo "✅ Launcher created."
 
 # ============================================================
 # Desktop launcher
 # ============================================================
 
+echo
 echo "🖥️ Creating desktop launcher..."
 
-cat > "${DEB_ROOT}${DESKTOP_FILE}" <<EOF
+cat > "${SOURCE_TREE}${DESKTOP_FILE}" <<'DESKTOPEOF'
 [Desktop Entry]
 Version=1.0
 Type=Application
@@ -1224,17 +658,43 @@ Terminal=false
 StartupNotify=true
 Categories=Network;Security;System;
 Keywords=security;analysis;audit;ssh;scanning;linux;
-EOF
+DESKTOPEOF
+
+chmod 644 "${SOURCE_TREE}${DESKTOP_FILE}"
+
+# ============================================================
+# systemd service
+# ============================================================
 
 echo
+echo "⚙️ Creating systemd service..."
+
+cat > "${SOURCE_TREE}${SYSTEMD_FILE}" <<'SERVICEEOF'
+[Unit]
+Description=sarabis Security Analyzer
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/usr/share/sarabis
+ExecStart=/usr/share/sarabis/venv/bin/python /usr/share/sarabis/app/main.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+SERVICEEOF
+
+chmod 644 "${SOURCE_TREE}${SYSTEMD_FILE}"
 
 # ============================================================
 # Documentation
 # ============================================================
 
+echo
 echo "📚 Creating documentation..."
 
-cat > "${DEB_ROOT}${DOC_DIR}/README.Debian" <<'EOF'
+cat > "${SOURCE_TREE}${DOC_DIR}/README.SUSE" <<'DOCEOF'
 sarabis Security Analyzer
 =========================
 
@@ -1246,6 +706,9 @@ Web interface:
 
 Configuration:
     /etc/sarabis/settings.py
+
+Application:
+    /usr/share/sarabis/
 
 Application data:
     /var/lib/sarabis/
@@ -1267,251 +730,570 @@ Default credentials:
     Password: admin
 
 antiX / SysVinit:
-    sarabis runs through the /usr/bin/sarabis launcher.
+    sarabis runs through /usr/bin/sarabis.
 
 systemd:
-    A systemd service is installed when systemd is detected.
-EOF
+    sarabis.service is installed when systemd is available.
+
+Important:
+    Change the default administrator credentials before
+    using sarabis in a production environment.
+DOCEOF
+
+chmod 644 "${SOURCE_TREE}${DOC_DIR}/README.SUSE"
+
+if [ -f "${SCRIPT_DIR}/README.md" ]; then
+
+    echo "📄 Copying README.md..."
+
+    cp \
+        "${SCRIPT_DIR}/README.md" \
+        "${SOURCE_TREE}${DOC_DIR}/README.md"
+
+    chmod 644 "${SOURCE_TREE}${DOC_DIR}/README.md"
+
+fi
+
+if [ -f "${SCRIPT_DIR}/LICENSE" ]; then
+
+    echo "📄 Copying LICENSE..."
+
+    cp \
+        "${SCRIPT_DIR}/LICENSE" \
+        "${SOURCE_TREE}${DOC_DIR}/LICENSE"
+
+    chmod 644 "${SOURCE_TREE}${DOC_DIR}/LICENSE"
+
+fi
+
+cat > "${SOURCE_TREE}${DOC_DIR}/COPYING" <<'COPYEOF'
+Copyright (c) KYGnus
+
+All rights reserved.
+COPYEOF
+
+chmod 644 "${SOURCE_TREE}${DOC_DIR}/COPYING"
+
+# ============================================================
+# Verify source tree
+# ============================================================
 
 echo
+echo "🔍 Verifying source tree..."
+
+test -f "${SOURCE_TREE}${APP_CODE_DIR}/main.py" \
+    || die "main.py missing."
+
+test -f "${SOURCE_TREE}${BIN_FILE}" \
+    || die "/usr/bin/sarabis missing."
+
+test -f "${SOURCE_TREE}${CONFIG_DIR}/settings.py" \
+    || die "settings.py missing."
+
+test -f "${SOURCE_TREE}${DESKTOP_FILE}" \
+    || die "Desktop file missing."
+
+test -f "${SOURCE_TREE}${SYSTEMD_FILE}" \
+    || die "systemd service missing."
+
+echo "✅ Source tree verified."
+
+# ============================================================
+# Shell syntax check
+# ============================================================
+
+echo
+echo "🔍 Checking launcher syntax..."
+
+bash -n "${SOURCE_TREE}${BIN_FILE}"
+
+echo "✅ Launcher syntax OK."
 
 # ============================================================
 # Package permissions
 # ============================================================
 
-echo "🔧 Setting package permissions..."
+echo
+echo "🔧 Configuring package permissions..."
 
-chmod 755 "${DEB_ROOT}${BIN_FILE}"
+chmod 755 \
+    "${SOURCE_TREE}${APP_INSTALL_DIR}"
 
-chmod 755 "${DEB_ROOT}${APP_INSTALL_DIR}"
-chmod 755 "${DEB_ROOT}${APP_INSTALL_DIR}/app"
+chmod 755 \
+    "${SOURCE_TREE}${APP_CODE_DIR}"
 
-find "${DEB_ROOT}${APP_INSTALL_DIR}/app" \
+find "${SOURCE_TREE}${APP_CODE_DIR}" \
     -type f \
     -name "*.py" \
     -exec chmod 644 {} \;
 
-chmod 755 "${DEB_ROOT}${DATA_DIR}"
-chmod 755 "${DEB_ROOT}${UPLOAD_DIR}"
-chmod 755 "${DEB_ROOT}${REPORT_DIR}"
-chmod 755 "${DEB_ROOT}${LOG_DIR}"
+chmod 755 \
+    "${SOURCE_TREE}${BIN_FILE}"
 
-echo "✅ Package permissions configured."
+chmod 644 \
+    "${SOURCE_TREE}${DESKTOP_FILE}"
 
-# ============================================================
-# Verify launcher BEFORE building
-# ============================================================
+chmod 644 \
+    "${SOURCE_TREE}${SYSTEMD_FILE}"
 
-echo
-echo "🔍 Verifying launcher..."
+chmod 755 \
+    "${SOURCE_TREE}${DATA_DIR}"
 
-if [ ! -f "${DEB_ROOT}${BIN_FILE}" ]; then
+chmod 755 \
+    "${SOURCE_TREE}${UPLOAD_DIR}"
 
-    echo "❌ ERROR: launcher does not exist:"
-    echo "   ${DEB_ROOT}${BIN_FILE}"
+chmod 755 \
+    "${SOURCE_TREE}${REPORT_DIR}"
 
-    exit 1
+chmod 755 \
+    "${SOURCE_TREE}${LOG_DIR}"
 
-fi
-
-if [ ! -x "${DEB_ROOT}${BIN_FILE}" ]; then
-
-    echo "❌ ERROR: launcher is not executable:"
-    echo "   ${DEB_ROOT}${BIN_FILE}"
-
-    exit 1
-
-fi
-
-echo "✅ Launcher exists and is executable."
+echo "✅ Permissions configured."
 
 # ============================================================
-# Verify main.py
-# ============================================================
-
-if [ ! -f "${DEB_ROOT}${APP_INSTALL_DIR}/app/main.py" ]; then
-
-    echo "❌ ERROR: main.py missing from package tree."
-
-    exit 1
-
-fi
-
-echo "✅ main.py exists."
-
-# ============================================================
-# Build .deb
+# Create source tarball
 # ============================================================
 
 echo
-echo "📦 Building Debian package..."
+echo "📦 Creating source archive..."
 
-dpkg-deb \
-    --build \
-    --root-owner-group \
-    "${DEB_ROOT}" \
-    "${PACKAGE_FILE}"
+tar \
+    -C "${BUILD_DIR}" \
+    -czf "${SOURCE_TARBALL}" \
+    "${APP_NAME}-${VERSION}"
 
+echo "✅ Source archive created:"
 echo
-
-if [ ! -f "${PACKAGE_FILE}" ]; then
-
-    echo "❌ Package was not created."
-
-    exit 1
-
-fi
-
-echo "✅ Debian package created:"
-echo "   ${PACKAGE_FILE}"
+echo "   ${SOURCE_TARBALL}"
 
 # ============================================================
-# Verify .deb contents
+# Create SPEC
+#
+# IMPORTANT:
+# Single-quoted heredoc prevents Bash from expanding RPM
+# macros such as %{buildroot}, %{_bindir}, etc.
 # ============================================================
 
 echo
-echo "🔍 Verifying package contents..."
+echo "📝 Creating RPM SPEC file..."
 
-if dpkg-deb -c "${PACKAGE_FILE}" | \
-    grep -qE '[[:space:]]\./usr/bin/sarabis$'; then
+cat > "${SPEC_FILE}" <<'SPECEOF'
+Name:           @APP_NAME@
+Version:        @VERSION@
+Release:        @RELEASE@%{?dist}
 
-    echo "✅ /usr/bin/sarabis is inside the .deb"
+Summary:        @DESCRIPTION@
 
-else
+License:        Proprietary
 
-    echo "❌ ERROR: /usr/bin/sarabis is missing from the .deb"
+URL:            @APP_URL_SITE@
 
-    exit 1
+Source0:        %{name}-%{version}.tar.gz
+
+BuildArch:      noarch
+
+# ============================================================
+# Runtime dependencies
+# ============================================================
+
+Requires:       python3
+Requires:       python3-pip
+Requires:       python3-venv
+Requires:       openssh
+Requires:       curl
+Requires:       xdg-utils
+
+# ============================================================
+# Optional build/runtime tools
+# ============================================================
+
+Recommends:     gcc
+Recommends:     gcc-c++
+
+%description
+sarabis is a comprehensive Linux security analysis platform.
+
+It provides:
+
+* Remote Linux system security analysis
+* SSH-based auditing
+* Security assessment
+* Report generation
+* Upload and report management
+* Local Flask web interface
+
+Web interface:
+
+@APP_URL@
+
+%prep
+
+%setup -q
+
+%build
+
+# No native compilation is required.
+# sarabis is a Python application.
+
+%install
+
+# ============================================================
+# Create installation directories
+# ============================================================
+
+mkdir -p %{buildroot}%{_datadir}/sarabis
+mkdir -p %{buildroot}%{_datadir}/sarabis/app
+
+mkdir -p %{buildroot}%{_sysconfdir}/sarabis
+
+mkdir -p %{buildroot}%{_localstatedir}/lib/sarabis
+mkdir -p %{buildroot}%{_localstatedir}/lib/sarabis/uploads
+mkdir -p %{buildroot}%{_localstatedir}/lib/sarabis/reports
+mkdir -p %{buildroot}%{_localstatedir}/lib/sarabis/logs
+
+mkdir -p %{buildroot}%{_bindir}
+
+mkdir -p %{buildroot}%{_datadir}/applications
+
+mkdir -p %{buildroot}%{_docdir}/sarabis
+
+mkdir -p %{buildroot}%{_unitdir}
+
+# ============================================================
+# Application
+# ============================================================
+
+cp -a \
+    usr/share/sarabis/app/. \
+    %{buildroot}%{_datadir}/sarabis/app/
+
+# ============================================================
+# requirements.txt
+# ============================================================
+
+if [ -f usr/share/sarabis/requirements.txt ]; then
+
+    cp \
+        usr/share/sarabis/requirements.txt \
+        %{buildroot}%{_datadir}/sarabis/requirements.txt
 
 fi
 
-if dpkg-deb -c "${PACKAGE_FILE}" | \
-    grep -qE '[[:space:]]\./usr/share/sarabis/app/main.py$'; then
+# ============================================================
+# setup.py
+# ============================================================
 
-    echo "✅ main.py is inside the .deb"
+if [ -f usr/share/sarabis/setup.py ]; then
 
-else
-
-    echo "❌ ERROR: main.py is missing from the .deb"
-
-    exit 1
+    cp \
+        usr/share/sarabis/setup.py \
+        %{buildroot}%{_datadir}/sarabis/setup.py
 
 fi
 
 # ============================================================
-# Verify runtime directories
+# Configuration
 # ============================================================
 
-if dpkg-deb -c "${PACKAGE_FILE}" | \
-    grep -qE '[[:space:]]\./var/lib/sarabis/logs/$'; then
+cp \
+    etc/sarabis/settings.py \
+    %{buildroot}%{_sysconfdir}/sarabis/settings.py
 
-    echo "✅ /var/lib/sarabis/logs/ exists in the .deb"
+# ============================================================
+# Launcher
+# ============================================================
 
-else
+cp \
+    usr/bin/sarabis \
+    %{buildroot}%{_bindir}/sarabis
 
-    echo "⚠️ Runtime log directory was not listed explicitly."
-    echo "This is normally harmless because empty directories may"
-    echo "not be stored by dpkg-deb."
+# ============================================================
+# Desktop entry
+# ============================================================
+
+cp \
+    usr/share/applications/sarabis.desktop \
+    %{buildroot}%{_datadir}/applications/sarabis.desktop
+
+# ============================================================
+# Documentation
+# ============================================================
+
+cp \
+    usr/share/doc/packages/sarabis/README.SUSE \
+    %{buildroot}%{_docdir}/sarabis/README.SUSE
+
+if [ -f usr/share/doc/packages/sarabis/README.md ]; then
+
+    cp \
+        usr/share/doc/packages/sarabis/README.md \
+        %{buildroot}%{_docdir}/sarabis/README.md
 
 fi
 
+if [ -f usr/share/doc/packages/sarabis/LICENSE ]; then
+
+    cp \
+        usr/share/doc/packages/sarabis/LICENSE \
+        %{buildroot}%{_docdir}/sarabis/LICENSE
+
+fi
+
+cp \
+    usr/share/doc/packages/sarabis/COPYING \
+    %{buildroot}%{_docdir}/sarabis/COPYING
+
 # ============================================================
-# Extract and verify maintainer scripts
+# systemd service
 # ============================================================
+
+cp \
+    usr/lib/systemd/system/sarabis.service \
+    %{buildroot}%{_unitdir}/sarabis.service
+
+# ============================================================
+# Permissions
+# ============================================================
+
+chmod 755 \
+    %{buildroot}%{_bindir}/sarabis
+
+find %{buildroot}%{_datadir}/sarabis/app \
+    -type f \
+    -name "*.py" \
+    -exec chmod 644 {} \;
+
+# ============================================================
+# Pre-install
+# ============================================================
+
+%pre
+
+mkdir -p /etc/sarabis
+
+mkdir -p /var/lib/sarabis
+mkdir -p /var/lib/sarabis/uploads
+mkdir -p /var/lib/sarabis/reports
+mkdir -p /var/lib/sarabis/logs
+
+exit 0
+
+# ============================================================
+# Post-install
+# ============================================================
+
+%post
+
+APP_DIR="/usr/share/sarabis"
+
+CONFIG_DIR="/etc/sarabis"
+
+DATA_DIR="/var/lib/sarabis"
+
+UPLOAD_DIR="/var/lib/sarabis/uploads"
+
+REPORT_DIR="/var/lib/sarabis/reports"
+
+LOG_DIR="/var/lib/sarabis/logs"
+
+BIN_FILE="/usr/bin/sarabis"
 
 echo
-echo "🔍 Verifying maintainer scripts..."
+echo "============================================================"
+echo " Configuring sarabis Security Analyzer"
+echo "============================================================"
+echo
 
-CONTROL_CHECK="/tmp/${APP_NAME}-control-check-$$"
+# ============================================================
+# Runtime directories
+# ============================================================
 
-rm -rf "$CONTROL_CHECK"
+mkdir -p "$CONFIG_DIR"
 
-dpkg-deb -e "${PACKAGE_FILE}" "$CONTROL_CHECK"
+mkdir -p "$DATA_DIR"
+mkdir -p "$UPLOAD_DIR"
+mkdir -p "$REPORT_DIR"
+mkdir -p "$LOG_DIR"
 
-if [ ! -f "$CONTROL_CHECK/postinst" ]; then
+# ============================================================
+# Python virtual environment
+# ============================================================
 
-    echo "❌ postinst missing."
+if [ ! -x "$APP_DIR/venv/bin/python" ]; then
 
-    rm -rf "$CONTROL_CHECK"
+    echo "🐍 Creating Python virtual environment..."
 
-    exit 1
+    if command -v python3 >/dev/null 2>&1; then
+
+        python3 -m venv "$APP_DIR/venv" || {
+
+            echo
+            echo "⚠️ Warning:"
+            echo "Unable to create Python virtual environment."
+            echo
+
+        }
+
+    fi
 
 fi
 
-echo "✅ postinst found."
+# ============================================================
+# Python dependencies
+# ============================================================
 
-if [ ! -f "$CONTROL_CHECK/postrm" ]; then
-
-    echo "❌ postrm missing."
-
-    rm -rf "$CONTROL_CHECK"
-
-    exit 1
-
-fi
-
-echo "✅ postrm found."
-
-# ------------------------------------------------------------
-# Make sure old destructive launcher removal is absent.
-# ------------------------------------------------------------
-
-if grep -Eq \
-    'rm[[:space:]]+-f[[:space:]]+["'\'']?/usr/bin/sarabis' \
-    "$CONTROL_CHECK/postrm"; then
+if [ -x "$APP_DIR/venv/bin/python" ] &&
+   [ -f "$APP_DIR/requirements.txt" ]; then
 
     echo
-    echo "❌ ERROR:"
-    echo "postrm still contains direct launcher deletion."
+    echo "📦 Installing Python dependencies..."
 
-    rm -rf "$CONTROL_CHECK"
+    "$APP_DIR/venv/bin/python" -m pip install \
+        --disable-pip-version-check \
+        --no-input \
+        -r "$APP_DIR/requirements.txt" || {
 
+        echo
+        echo "⚠️ Warning:"
+        echo "Some Python dependencies could not be installed."
+        echo "RPM installation will continue."
+        echo
+
+    }
+
+fi
+
+# ============================================================
+# Configuration
+#
+# Do not overwrite existing settings.py during upgrades.
+# ============================================================
+
+if [ ! -f "$CONFIG_DIR/settings.py" ]; then
+
+    cat > "$CONFIG_DIR/settings.py" <<'CONFIGEOF'
+# ============================================================
+# sarabis Security Analyzer Configuration
+# ============================================================
+
+HOST = "127.0.0.1"
+PORT = 8080
+
+DEBUG = False
+
+UPLOAD_DIR = "/var/lib/sarabis/uploads"
+REPORT_DIR = "/var/lib/sarabis/reports"
+LOG_DIR = "/var/lib/sarabis/logs"
+
+SECRET_KEY = "sarabis-change-this-secret-key"
+
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD = "admin"
+CONFIGEOF
+
+    chmod 644 "$CONFIG_DIR/settings.py"
+
+fi
+
+# ============================================================
+# Admin credentials
+# ============================================================
+
+if [ ! -f "$APP_DIR/.admin_credentials" ]; then
+
+    cat > "$APP_DIR/.admin_credentials" <<'CREDENTIALSEOF'
+username=admin
+password=admin
+CREDENTIALSEOF
+
+    chmod 600 "$APP_DIR/.admin_credentials"
+
+fi
+
+# ============================================================
+# systemd detection
+# ============================================================
+
+if [ -d /run/systemd/system ] &&
+   command -v systemctl >/dev/null 2>&1; then
+
+    echo
+    echo "⚙️ systemd detected."
+
+    systemctl daemon-reload \
+        >/dev/null 2>&1 || true
+
+    echo
+    echo "Service available:"
+    echo
+    echo "  sudo systemctl start sarabis"
+    echo "  sudo systemctl enable sarabis"
+    echo
+
+else
+
+    echo
+    echo "ℹ️ Non-systemd environment detected."
+    echo
+    echo "Run sarabis with:"
+    echo
+    echo "  sarabis"
+    echo
+
+fi
+
+# ============================================================
+# Desktop database
+# ============================================================
+
+if command -v update-desktop-database >/dev/null 2>&1; then
+
+    update-desktop-database \
+        /usr/share/applications \
+        >/dev/null 2>&1 || true
+
+fi
+
+# ============================================================
+# Verify launcher
+# ============================================================
+
+if [ ! -f "$BIN_FILE" ]; then
+
+    echo
+    echo "❌ ERROR: $BIN_FILE is missing."
     exit 1
 
 fi
 
-echo "✅ postrm does not directly remove /usr/bin/sarabis."
+if [ ! -x "$BIN_FILE" ]; then
 
-rm -rf "$CONTROL_CHECK"
+    echo
+    echo "❌ ERROR: $BIN_FILE is not executable."
+    exit 1
 
-# ============================================================
-# Show package contents
-# ============================================================
-
-echo
-echo "📋 Important package files:"
-
-dpkg-deb -c "${PACKAGE_FILE}" | \
-    grep -E \
-    'usr/bin/sarabis|usr/share/sarabis/app/main.py|usr/share/applications/sarabis.desktop|etc/sarabis' \
-    || true
+fi
 
 # ============================================================
-# Final result
+# Installation summary
 # ============================================================
 
 echo
 echo "============================================================"
-echo "              BUILD SUCCESSFUL"
+echo " sarabis installation completed"
 echo "============================================================"
 echo
-echo "Package:"
-echo "  ${PACKAGE_FILE}"
-echo
-echo "Install:"
-echo "  sudo apt install --reinstall ./${PACKAGE_FILE}"
-echo
-echo "Run:"
+echo "Command:"
 echo "  sarabis"
 echo
-echo "Web:"
-echo "  ${APP_URL}"
-echo
-echo "Launcher:"
-echo "  /usr/bin/sarabis"
+echo "Web interface:"
+echo "  http://localhost:8080"
 echo
 echo "Configuration:"
 echo "  /etc/sarabis/settings.py"
+echo
+echo "Application:"
+echo "  /usr/share/sarabis/"
 echo
 echo "Uploads:"
 echo "  /var/lib/sarabis/uploads/"
@@ -1522,4 +1304,457 @@ echo
 echo "Logs:"
 echo "  /var/lib/sarabis/logs/sarabis.log"
 echo
+echo "Default credentials:"
+echo "  Username: admin"
+echo "  Password: admin"
+echo
+echo "Launcher:"
+echo "  /usr/bin/sarabis"
+echo
+
+exit 0
+
+# ============================================================
+# Pre-uninstall
+# ============================================================
+
+%preun
+
+if [ "$1" -eq 0 ]; then
+
+    if command -v systemctl >/dev/null 2>&1; then
+
+        systemctl disable --now sarabis.service \
+            >/dev/null 2>&1 || true
+
+    fi
+
+fi
+
+exit 0
+
+# ============================================================
+# Post-uninstall
+# ============================================================
+
+%postun
+
+if [ "$1" -eq 0 ]; then
+
+    if command -v systemctl >/dev/null 2>&1; then
+
+        systemctl daemon-reload \
+            >/dev/null 2>&1 || true
+
+    fi
+
+    # Runtime data is intentionally preserved.
+    #
+    # Remove manually if required:
+    #
+    #   sudo rm -rf /var/lib/sarabis
+
+fi
+
+exit 0
+
+# ============================================================
+# Files
+# ============================================================
+
+%files
+
+%defattr(-,root,root,-)
+
+# ------------------------------------------------------------
+# Launcher
+# ------------------------------------------------------------
+
+%attr(0755,root,root) %{_bindir}/sarabis
+
+# ------------------------------------------------------------
+# Application
+# ------------------------------------------------------------
+
+%dir %{_datadir}/sarabis
+
+%dir %{_datadir}/sarabis/app
+
+%{_datadir}/sarabis/app/*
+
+%{_datadir}/sarabis/requirements.txt
+
+%if 0%{?exists:%{_datadir}/sarabis/setup.py}
+%{_datadir}/sarabis/setup.py
+%endif
+
+# ------------------------------------------------------------
+# Configuration
+# ------------------------------------------------------------
+
+%config(noreplace) %{_sysconfdir}/sarabis/settings.py
+
+# ------------------------------------------------------------
+# Runtime directories
+# ------------------------------------------------------------
+
+%dir %{_localstatedir}/lib/sarabis
+
+%dir %{_localstatedir}/lib/sarabis/uploads
+
+%dir %{_localstatedir}/lib/sarabis/reports
+
+%dir %{_localstatedir}/lib/sarabis/logs
+
+# ------------------------------------------------------------
+# Desktop launcher
+# ------------------------------------------------------------
+
+%{_datadir}/applications/sarabis.desktop
+
+# ------------------------------------------------------------
+# systemd service
+# ------------------------------------------------------------
+
+%{_unitdir}/sarabis.service
+
+# ------------------------------------------------------------
+# Documentation
+# ------------------------------------------------------------
+
+%doc %{_docdir}/sarabis/README.SUSE
+
+%doc %{_docdir}/sarabis/COPYING
+
+%if 0%{?exists:%{_docdir}/sarabis/README.md}
+%doc %{_docdir}/sarabis/README.md
+%endif
+
+%if 0%{?exists:%{_docdir}/sarabis/LICENSE}
+%doc %{_docdir}/sarabis/LICENSE
+%endif
+
+# ============================================================
+# Changelog
+# ============================================================
+
+%changelog
+* Thu Sep 24 2026 KYGnus <kygnus.co@proton.me> - @VERSION@-@RELEASE@
+- Initial RPM package for sarabis Security Analyzer
+SPECEOF
+
+# ============================================================
+# Replace SPEC placeholders
+# ============================================================
+
+sed -i \
+    -e "s|@APP_NAME@|${APP_NAME}|g" \
+    -e "s|@VERSION@|${VERSION}|g" \
+    -e "s|@RELEASE@|${RELEASE}|g" \
+    -e "s|@DESCRIPTION@|${DESCRIPTION}|g" \
+    -e "s|@APP_URL@|${APP_URL}|g" \
+    -e "s|@APP_URL_SITE@|${APP_URL_SITE}|g" \
+    "${SPEC_FILE}"
+
+echo "✅ SPEC file created:"
+echo
+echo "   ${SPEC_FILE}"
+
+# ============================================================
+# Build RPM
+# ============================================================
+
+echo
+echo "📦 Building RPM package..."
+echo
+
+rpmbuild \
+    --define "_topdir ${RPM_ROOT}" \
+    --define "_builddir ${BUILD_RPM_DIR}" \
+    --define "_buildrootdir ${BUILDROOT_DIR}" \
+    --define "_rpmdir ${RPMS_DIR}" \
+    --define "_srcrpmdir ${SRPMS_DIR}" \
+    --define "_sourcedir ${SOURCES_DIR}" \
+    --define "_specdir ${SPECS_DIR}" \
+    --define "_tmppath ${TMP_DIR}" \
+    --define "debug_package %{nil}" \
+    -bb \
+    "${SPEC_FILE}"
+
+echo
+echo "✅ rpmbuild completed."
+
+# ============================================================
+# Find real sarabis RPM
+# ============================================================
+
+echo
+echo "🔍 Locating generated RPM..."
+
+BUILT_RPM=""
+
+while IFS= read -r RPM_FILE; do
+
+    [ -f "$RPM_FILE" ] || continue
+
+    RPM_NAME="$(
+        rpm -qp \
+            --qf '%{NAME}' \
+            "$RPM_FILE" \
+            2>/dev/null || true
+    )"
+
+    RPM_VERSION="$(
+        rpm -qp \
+            --qf '%{VERSION}' \
+            "$RPM_FILE" \
+            2>/dev/null || true
+    )"
+
+    RPM_ARCH="$(
+        rpm -qp \
+            --qf '%{ARCH}' \
+            "$RPM_FILE" \
+            2>/dev/null || true
+    )"
+
+    if [ "$RPM_NAME" = "$APP_NAME" ] &&
+       [ "$RPM_VERSION" = "$VERSION" ] &&
+       [ "$RPM_ARCH" = "$ARCHITECTURE" ]; then
+
+        BUILT_RPM="$RPM_FILE"
+
+        echo
+        echo "✅ Correct RPM found:"
+        echo
+        echo "   $RPM_FILE"
+        echo
+        echo "   Name:    $RPM_NAME"
+        echo "   Version: $RPM_VERSION"
+        echo "   Arch:    $RPM_ARCH"
+
+        break
+
+    fi
+
+done < <(
+    find "${RPMS_DIR}" \
+        -type f \
+        -name "*.rpm" \
+        -print \
+        | sort
+)
+
+# ============================================================
+# Validate generated RPM
+# ============================================================
+
+if [ -z "${BUILT_RPM}" ]; then
+
+    echo
+    echo "❌ Could not find the real ${APP_NAME} RPM."
+    echo
+    echo "Generated RPM files:"
+    echo
+
+    find "${RPMS_DIR}" \
+        -type f \
+        -name "*.rpm" \
+        -print \
+        | sort || true
+
+    exit 1
+
+fi
+
+# ============================================================
+# RPM metadata verification
+# ============================================================
+
+echo
+echo "🔍 Verifying RPM metadata..."
+
+CHECK_NAME="$(
+    rpm -qp \
+        --qf '%{NAME}' \
+        "${BUILT_RPM}"
+)"
+
+CHECK_VERSION="$(
+    rpm -qp \
+        --qf '%{VERSION}' \
+        "${BUILT_RPM}"
+)"
+
+CHECK_RELEASE="$(
+    rpm -qp \
+        --qf '%{RELEASE}' \
+        "${BUILT_RPM}"
+)"
+
+CHECK_ARCH="$(
+    rpm -qp \
+        --qf '%{ARCH}' \
+        "${BUILT_RPM}"
+)"
+
+if [ "${CHECK_NAME}" != "${APP_NAME}" ]; then
+
+    die "RPM internal name is ${CHECK_NAME}, expected ${APP_NAME}."
+
+fi
+
+if [ "${CHECK_VERSION}" != "${VERSION}" ]; then
+
+    die "RPM version is ${CHECK_VERSION}, expected ${VERSION}."
+
+fi
+
+if [ "${CHECK_ARCH}" != "${ARCHITECTURE}" ]; then
+
+    die "RPM architecture is ${CHECK_ARCH}, expected ${ARCHITECTURE}."
+
+fi
+
+echo "✅ RPM metadata verified."
+
+# ============================================================
+# Verify package contents
+# ============================================================
+
+echo
+echo "🔍 Verifying RPM contents..."
+
+RPM_CONTENTS="$(
+    rpm -qpl "${BUILT_RPM}"
+)"
+
+if ! grep -qx '/usr/bin/sarabis' <<< "${RPM_CONTENTS}"; then
+
+    die "/usr/bin/sarabis is missing from RPM."
+
+fi
+
+echo "✅ /usr/bin/sarabis"
+
+if ! grep -qx '/usr/share/sarabis/app/main.py' <<< "${RPM_CONTENTS}"; then
+
+    die "/usr/share/sarabis/app/main.py is missing from RPM."
+
+fi
+
+echo "✅ /usr/share/sarabis/app/main.py"
+
+if ! grep -qx '/etc/sarabis/settings.py' <<< "${RPM_CONTENTS}"; then
+
+    die "/etc/sarabis/settings.py is missing from RPM."
+
+fi
+
+echo "✅ /etc/sarabis/settings.py"
+
+if ! grep -qx '/usr/share/applications/sarabis.desktop' <<< "${RPM_CONTENTS}"; then
+
+    die "Desktop launcher is missing from RPM."
+
+fi
+
+echo "✅ /usr/share/applications/sarabis.desktop"
+
+if ! grep -qx '/usr/lib/systemd/system/sarabis.service' <<< "${RPM_CONTENTS}"; then
+
+    die "systemd service is missing from RPM."
+
+fi
+
+echo "✅ /usr/lib/systemd/system/sarabis.service"
+
+# ============================================================
+# Copy final RPM
+# ============================================================
+
+echo
+echo "📦 Copying final RPM..."
+
+rm -f "${PACKAGE_FILE}"
+
+cp \
+    "${BUILT_RPM}" \
+    "${PACKAGE_FILE}"
+
+chmod 644 "${PACKAGE_FILE}"
+
+echo "✅ Final RPM created:"
+echo
+echo "   ${PACKAGE_FILE}"
+
+# ============================================================
+# RPM information
+# ============================================================
+
+echo
 echo "============================================================"
+echo "                 RPM PACKAGE INFORMATION"
+echo "============================================================"
+echo
+
+rpm -qpi "${PACKAGE_FILE}"
+
+# ============================================================
+# Important contents
+# ============================================================
+
+echo
+echo "============================================================"
+echo "                 PACKAGE CONTENTS"
+echo "============================================================"
+echo
+
+rpm -qpl "${PACKAGE_FILE}" |
+    grep -E \
+        '^/usr/bin/sarabis$|^/usr/share/sarabis/app/main.py$|^/usr/share/applications/sarabis.desktop$|^/etc/sarabis/settings.py$|^/usr/lib/systemd/system/sarabis.service$' \
+        || true
+
+# ============================================================
+# Final result
+# ============================================================
+
+echo
+echo "============================================================"
+echo "              BUILD SUCCESSFUL"
+echo "============================================================"
+echo
+echo "RPM:"
+echo
+echo "  ${PACKAGE_FILE}"
+echo
+echo "Install:"
+echo
+echo "  sudo zypper install ./${PACKAGE_FILE}"
+echo
+echo "Run:"
+echo
+echo "  sarabis"
+echo
+echo "Web:"
+echo
+echo "  ${APP_URL}"
+echo
+echo "Configuration:"
+echo
+echo "  /etc/sarabis/settings.py"
+echo
+echo "Application:"
+echo
+echo "  /usr/share/sarabis/"
+echo
+echo "Data:"
+echo
+echo "  /var/lib/sarabis/"
+echo
+echo "Logs:"
+echo
+echo "  /var/lib/sarabis/logs/sarabis.log"
+echo
+echo "============================================================"
+

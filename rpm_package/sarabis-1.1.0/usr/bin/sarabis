@@ -1,0 +1,218 @@
+#!/bin/bash
+
+# ============================================================
+# sarabis Security Analyzer Launcher
+# ============================================================
+
+APP_DIR="/usr/share/sarabis"
+
+APP_URL="http://localhost:8080"
+
+VENV_PYTHON="${APP_DIR}/venv/bin/python"
+
+MAIN_APP="${APP_DIR}/app/main.py"
+
+DATA_DIR="/var/lib/sarabis"
+
+LOG_DIR="${DATA_DIR}/logs"
+
+LOG_FILE="${LOG_DIR}/sarabis.log"
+
+# ============================================================
+# Browser
+# ============================================================
+
+open_browser()
+{
+    if command -v xdg-open >/dev/null 2>&1; then
+
+        xdg-open "${APP_URL}" >/dev/null 2>&1 &
+
+    elif command -v firefox >/dev/null 2>&1; then
+
+        firefox "${APP_URL}" >/dev/null 2>&1 &
+
+    elif command -v chromium >/dev/null 2>&1; then
+
+        chromium "${APP_URL}" >/dev/null 2>&1 &
+
+    elif command -v chromium-browser >/dev/null 2>&1; then
+
+        chromium-browser "${APP_URL}" >/dev/null 2>&1 &
+
+    else
+
+        echo "⚠️ Browser not found."
+        echo "Open manually: ${APP_URL}"
+
+    fi
+}
+
+# ============================================================
+# Verify application
+# ============================================================
+
+if [ ! -f "${MAIN_APP}" ]; then
+
+    echo
+    echo "❌ sarabis application not found:"
+    echo
+    echo "   ${MAIN_APP}"
+    echo
+
+    exit 1
+
+fi
+
+# ============================================================
+# Verify venv
+# ============================================================
+
+if [ ! -x "${VENV_PYTHON}" ]; then
+
+    echo
+    echo "❌ Python virtual environment not found:"
+    echo
+    echo "   ${VENV_PYTHON}"
+    echo
+
+    exit 1
+
+fi
+
+# ============================================================
+# Log directory
+# ============================================================
+
+mkdir -p "${LOG_DIR}" 2>/dev/null || true
+
+# ============================================================
+# Check running server
+# ============================================================
+
+if command -v curl >/dev/null 2>&1; then
+
+    if curl \
+        -fsS \
+        --max-time 2 \
+        "${APP_URL}" \
+        >/dev/null 2>&1; then
+
+        echo
+        echo "✅ sarabis is already running."
+        echo
+        echo "🌐 ${APP_URL}"
+        echo
+
+        open_browser
+
+        exit 0
+
+    fi
+
+fi
+
+# ============================================================
+# Log file
+# ============================================================
+
+if touch "${LOG_FILE}" >/dev/null 2>&1; then
+
+    ACTIVE_LOG="${LOG_FILE}"
+
+else
+
+    ACTIVE_LOG="/tmp/sarabis-${USER:-user}.log"
+
+    touch "${ACTIVE_LOG}" >/dev/null 2>&1 || true
+
+fi
+
+# ============================================================
+# Start
+# ============================================================
+
+echo
+echo "🚀 Starting sarabis..."
+echo
+echo "🌐 ${APP_URL}"
+echo
+
+nohup \
+    "${VENV_PYTHON}" \
+    "${MAIN_APP}" \
+    "$@" \
+    >> "${ACTIVE_LOG}" 2>&1 &
+
+SARABIS_PID=$!
+
+echo "PID: ${SARABIS_PID}"
+
+# ============================================================
+# Wait
+# ============================================================
+
+echo
+echo "⏳ Waiting for web interface..."
+
+SERVER_READY=0
+
+for i in $(seq 1 30); do
+
+    sleep 1
+
+    if ! kill -0 "${SARABIS_PID}" 2>/dev/null; then
+
+        echo
+        echo "❌ sarabis stopped unexpectedly."
+        echo
+        echo "Log:"
+        echo
+        echo "   ${ACTIVE_LOG}"
+        echo
+
+        tail -n 30 "${ACTIVE_LOG}" 2>/dev/null || true
+
+        exit 1
+
+    fi
+
+    if command -v curl >/dev/null 2>&1; then
+
+        if curl \
+            -fsS \
+            --max-time 2 \
+            "${APP_URL}" \
+            >/dev/null 2>&1; then
+
+            SERVER_READY=1
+
+            break
+
+        fi
+
+    fi
+
+done
+
+echo
+
+if [ "${SERVER_READY}" -eq 1 ]; then
+
+    echo "✅ sarabis web interface is ready."
+    echo
+    echo "🌐 ${APP_URL}"
+
+else
+
+    echo "⚠️ Web interface did not respond within 30 seconds."
+    echo
+    echo "Check:"
+    echo
+    echo "   ${ACTIVE_LOG}"
+
+fi
+
+open_browser
+
+exit 0
